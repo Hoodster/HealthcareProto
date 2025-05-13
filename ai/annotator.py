@@ -9,6 +9,7 @@ class SimpleAnnotator:
         self.master = master
         self.master.title("ESC Guidelines Annotator")
         self.master.geometry("900x700")
+        self.twoja_stara = ''
 
         self.sentences = sentences
         self.current_idx = 0
