@@ -1,0 +1,16 @@
+.master-detail {
+    display: flex;
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+
+    .master-view {
+        flex-grow: 1;
+    }
+
+    .detail-view {
+        flex-grow: 2;
+    }
+}
