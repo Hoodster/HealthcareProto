@@ -1,6 +1,6 @@
 import * as ScrollArea from "@radix-ui/react-scroll-area"
 import React, { type ReactNode } from "react"
-import "./Aside.scss"
+import styles from './Aside.module.scss'
 
 export type AsideContentItem = {
   title: string
@@ -12,8 +12,13 @@ export type AsideContentItem = {
 const Header = ({children} : {children: string | ReactNode}) => <h1 className="aside-title">{children}</h1>
 
 const AsideContent = ({ contents }: { contents: AsideContentItem[] }) => {
-  const SectionTitle = ({ text }: { text: string }) => (
-    <div className="section-title">
+
+  const SectionTitle = ({ 
+    text 
+  }: { 
+    text: string 
+  }) => (
+    <div className={styles['section-title']}>
       <h3>{text}</h3>
     </div>
   )
@@ -27,15 +32,15 @@ const AsideContent = ({ contents }: { contents: AsideContentItem[] }) => {
   }) => {
     if (!scrollable) return <div className="section-content">{children}</div>
 
-    
+
 
     return (
-      <ScrollArea.Root className="scroll-wrapper">
-        <ScrollArea.Viewport className="scroll-viewport">
+      <ScrollArea.Root className={styles["scroll-wrapper"]}>
+        <ScrollArea.Viewport className={styles["scroll-viewport"]}>
           {children}
         </ScrollArea.Viewport>
-        <ScrollArea.Scrollbar className="scrollbar" orientation="vertical">
-          <ScrollArea.Thumb className="scroll-thumb" />
+        <ScrollArea.Scrollbar className={styles.scrollbar} orientation="vertical">
+          <ScrollArea.Thumb className={styles["scroll-thumb"]} />
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
     )
@@ -44,11 +49,13 @@ const AsideContent = ({ contents }: { contents: AsideContentItem[] }) => {
   return (
     <div className="aside-section">
       {contents.map((content, i) => (
-        <div className="section-block" key={i}>
+        <div>
           <SectionTitle text={content.title} />
-          <SectionContent scrollable={content.scrollable}>
-            {content.content}
-          </SectionContent>
+          <div className={styles["section-block"]} key={i}>
+            <SectionContent scrollable={content.scrollable}>
+              {content.content}
+            </SectionContent>
+          </div>
         </div>
       ))}
     </div>
@@ -59,14 +66,7 @@ const Aside = ({ header, children }: { header: string, children: React.ReactNode
   return (
     <div className="aside-root">
       <Header>{header}</Header>
-      <ScrollArea.Root className="scroll-wrapper">
-        <ScrollArea.Viewport className="scroll-viewport">
-          {children}
-        </ScrollArea.Viewport>
-        <ScrollArea.Scrollbar className="scrollbar" orientation="vertical">
-          <ScrollArea.Thumb className="scroll-thumb" />
-        </ScrollArea.Scrollbar>
-      </ScrollArea.Root>
+      {children}
     </div>
   )
 }

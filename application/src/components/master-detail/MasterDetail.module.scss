@@ -1,5 +1,6 @@
 .master-detail {
     display: flex;
+    padding: 0 20px;
     position: absolute;
     height: 100%;
     width: 100%;
@@ -8,6 +9,8 @@
 
     .master-view {
         flex-grow: 1;
+        border-right: white 1px solid;
+        cursor: grabbing;
     }
 
     .detail-view {
