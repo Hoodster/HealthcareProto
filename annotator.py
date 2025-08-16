@@ -128,3 +128,4 @@ categories = [
 # root = tk.Tk()
 # app = SimpleAnnotator(root, sentences, categories)
 # root.mainloop()
+§

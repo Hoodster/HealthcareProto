@@ -290,8 +290,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "antiarrhythmic"
+      "antiarrhythmic",
+      "anticoagulant"
     ]
   },
   {
@@ -341,9 +341,9 @@
     "safety_score": 3,
     "is_safety_related": true,
     "matched_keywords": [
+      "follow-up",
       "antiarrhythmic",
-      "safety",
-      "follow-up"
+      "safety"
     ]
   },
   {
@@ -363,9 +363,9 @@
     "safety_score": 3,
     "is_safety_related": true,
     "matched_keywords": [
+      "creatinine",
       "bleeding",
-      "anticoagulant",
-      "creatinine"
+      "anticoagulant"
     ]
   },
   {
@@ -376,10 +376,10 @@
     "safety_score": 5,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
+      "follow-up",
       "inr",
       "monitoring",
-      "follow-up"
+      "anticoagulant"
     ]
   },
   {
@@ -867,8 +867,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "antiarrhythmic"
+      "antiarrhythmic",
+      "anticoagulant"
     ]
   },
   {
@@ -1051,8 +1051,8 @@
     "is_safety_related": true,
     "matched_keywords": [
       "bleeding",
-      "anticoagulant",
-      "antiarrhythmic"
+      "antiarrhythmic",
+      "anticoagulant"
     ]
   },
   {
@@ -1629,8 +1629,8 @@
     "is_safety_related": true,
     "matched_keywords": [
       "bleeding",
-      "anticoagulant",
       "inr",
+      "anticoagulant",
       "antiarrhythmic"
     ]
   },
@@ -1651,8 +1651,8 @@
     "safety_score": 3,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "inr"
+      "inr",
+      "anticoagulant"
     ]
   },
   {
@@ -1949,8 +1949,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "monitoring",
-      "follow-up"
+      "follow-up",
+      "monitoring"
     ]
   },
   {
@@ -2044,8 +2044,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "adverse",
-      "bleeding"
+      "bleeding",
+      "adverse"
     ]
   },
   {
@@ -2305,9 +2305,9 @@
     "safety_score": 3,
     "is_safety_related": true,
     "matched_keywords": [
-      "renal function",
+      "inr",
       "caution",
-      "inr"
+      "renal function"
     ]
   },
   {
@@ -2393,10 +2393,10 @@
     "safety_score": 4,
     "is_safety_related": true,
     "matched_keywords": [
-      "renal function",
+      "safety",
       "bleeding",
-      "follow-up",
-      "safety"
+      "renal function",
+      "follow-up"
     ]
   },
   {
@@ -2469,10 +2469,10 @@
     "safety_score": 7,
     "is_safety_related": true,
     "matched_keywords": [
+      "safety",
       "bleeding",
-      "anticoagulant",
       "inr",
-      "safety"
+      "anticoagulant"
     ]
   },
   {
@@ -2522,9 +2522,9 @@
     "safety_score": 6,
     "is_safety_related": true,
     "matched_keywords": [
+      "safety",
       "bleeding",
-      "inr",
-      "safety"
+      "inr"
     ]
   },
   {
@@ -2556,9 +2556,9 @@
     "safety_score": 3,
     "is_safety_related": true,
     "matched_keywords": [
+      "follow-up",
       "bleeding",
-      "safety",
-      "follow-up"
+      "safety"
     ]
   },
   {
@@ -2569,8 +2569,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "follow-up",
-      "safety"
+      "safety",
+      "follow-up"
     ]
   },
   {
@@ -2581,9 +2581,9 @@
     "safety_score": 3,
     "is_safety_related": true,
     "matched_keywords": [
+      "creatinine",
       "bleeding",
-      "anticoagulant",
-      "creatinine"
+      "anticoagulant"
     ]
   },
   {
@@ -2594,8 +2594,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "bleeding",
-      "creatinine"
+      "creatinine",
+      "bleeding"
     ]
   },
   {
@@ -2606,8 +2606,8 @@
     "safety_score": 3,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "creatinine"
+      "creatinine",
+      "anticoagulant"
     ]
   },
   {
@@ -2687,8 +2687,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "inr"
+      "inr",
+      "anticoagulant"
     ]
   },
   {
@@ -2770,8 +2770,8 @@
     "safety_score": 3,
     "is_safety_related": true,
     "matched_keywords": [
-      "bleeding",
-      "safety"
+      "safety",
+      "bleeding"
     ]
   },
   {
@@ -2825,10 +2825,10 @@
     "safety_score": 6,
     "is_safety_related": true,
     "matched_keywords": [
-      "complication",
       "bleeding",
-      "adverse",
-      "follow-up"
+      "complication",
+      "follow-up",
+      "adverse"
     ]
   },
   {
@@ -2992,8 +2992,8 @@
     "safety_score": 6,
     "is_safety_related": true,
     "matched_keywords": [
-      "renal function",
       "bleeding",
+      "renal function",
       "anticoagulant"
     ]
   },
@@ -3107,8 +3107,8 @@
     "safety_score": 3,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "inr"
+      "inr",
+      "anticoagulant"
     ]
   },
   {
@@ -3120,9 +3120,9 @@
     "is_safety_related": true,
     "matched_keywords": [
       "bleeding",
-      "anticoagulant",
       "inr",
-      "monitoring"
+      "monitoring",
+      "anticoagulant"
     ]
   },
   {
@@ -3134,8 +3134,8 @@
     "is_safety_related": true,
     "matched_keywords": [
       "bleeding",
-      "anticoagulant",
-      "inr"
+      "inr",
+      "anticoagulant"
     ]
   },
   {
@@ -3276,8 +3276,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "follow-up",
-      "safety"
+      "safety",
+      "follow-up"
     ]
   },
   {
@@ -3643,8 +3643,8 @@
     "safety_score": 3,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "inr"
+      "inr",
+      "anticoagulant"
     ]
   },
   {
@@ -3664,9 +3664,9 @@
     "safety_score": 3,
     "is_safety_related": true,
     "matched_keywords": [
-      "adverse",
+      "safety",
       "monitoring",
-      "safety"
+      "adverse"
     ]
   },
   {
@@ -3731,9 +3731,9 @@
     "safety_score": 4,
     "is_safety_related": true,
     "matched_keywords": [
-      "qtc",
+      "safety",
       "proarrhythmia",
-      "safety"
+      "qtc"
     ]
   },
   {
@@ -3795,8 +3795,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "caution",
-      "safety"
+      "safety",
+      "caution"
     ]
   },
   {
@@ -3816,9 +3816,9 @@
     "safety_score": 4,
     "is_safety_related": true,
     "matched_keywords": [
+      "qt",
       "torsades de pointes",
-      "monitoring",
-      "qt"
+      "monitoring"
     ]
   },
   {
@@ -3881,8 +3881,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "adverse",
-      "proarrhythmia"
+      "proarrhythmia",
+      "adverse"
     ]
   },
   {
@@ -3893,8 +3893,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "proarrhythmia",
-      "safety"
+      "safety",
+      "proarrhythmia"
     ]
   },
   {
@@ -3954,9 +3954,9 @@
     "safety_score": 4,
     "is_safety_related": true,
     "matched_keywords": [
+      "toxicity",
       "antiarrhythmic",
-      "monitoring",
-      "toxicity"
+      "monitoring"
     ]
   },
   {
@@ -3967,11 +3967,11 @@
     "safety_score": 5,
     "is_safety_related": true,
     "matched_keywords": [
-      "renal function",
       "qt",
-      "antiarrhythmic",
       "proarrhythmia",
-      "monitoring"
+      "monitoring",
+      "renal function",
+      "antiarrhythmic"
     ]
   },
   {
@@ -4132,10 +4132,10 @@
     "safety_score": 4,
     "is_safety_related": true,
     "matched_keywords": [
+      "follow-up",
       "complication",
-      "adverse",
       "safety",
-      "follow-up"
+      "adverse"
     ]
   },
   {
@@ -4209,8 +4209,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "safety"
+      "safety",
+      "anticoagulant"
     ]
   },
   {
@@ -4230,8 +4230,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "monitoring",
-      "safety"
+      "safety",
+      "monitoring"
     ]
   },
   {
@@ -4300,8 +4300,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "adverse",
-      "bleeding"
+      "bleeding",
+      "adverse"
     ]
   },
   {
@@ -4442,8 +4442,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "safety"
+      "safety",
+      "anticoagulant"
     ]
   },
   {
@@ -4596,8 +4596,8 @@
     "safety_score": 4,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "inr"
+      "inr",
+      "anticoagulant"
     ]
   },
   {
@@ -4683,8 +4683,8 @@
     "is_safety_related": true,
     "matched_keywords": [
       "bleeding",
-      "anticoagulant",
-      "inr"
+      "inr",
+      "anticoagulant"
     ]
   },
   {
@@ -4848,8 +4848,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "adverse",
-      "bleeding"
+      "bleeding",
+      "adverse"
     ]
   },
   {
@@ -4880,9 +4880,9 @@
     "safety_score": 4,
     "is_safety_related": true,
     "matched_keywords": [
-      "adverse",
+      "bleeding",
       "anticoagulant",
-      "bleeding"
+      "adverse"
     ]
   },
   {
@@ -4982,8 +4982,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "bleeding",
-      "safety"
+      "safety",
+      "bleeding"
     ]
   },
   {
@@ -5147,8 +5147,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "adverse",
-      "qt"
+      "qt",
+      "adverse"
     ]
   },
   {
@@ -5228,9 +5228,9 @@
     "safety_score": 3,
     "is_safety_related": true,
     "matched_keywords": [
-      "bleeding",
       "qt",
-      "safety"
+      "safety",
+      "bleeding"
     ]
   },
   {
@@ -5736,8 +5736,8 @@
     "safety_score": 4,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "inr"
+      "inr",
+      "anticoagulant"
     ]
   },
   {
@@ -5771,9 +5771,9 @@
     "safety_score": 4,
     "is_safety_related": true,
     "matched_keywords": [
-      "antiarrhythmic",
       "toxicity",
-      "safety"
+      "safety",
+      "antiarrhythmic"
     ]
   },
   {
@@ -5833,8 +5833,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "monitoring",
-      "follow-up"
+      "follow-up",
+      "monitoring"
     ]
   },
   {
@@ -6017,8 +6017,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "inr",
-      "safety"
+      "safety",
+      "inr"
     ]
   },
   {
@@ -6117,8 +6117,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "qtc",
-      "proarrhythmia"
+      "proarrhythmia",
+      "qtc"
     ]
   },
   {
@@ -6129,9 +6129,9 @@
     "safety_score": 4,
     "is_safety_related": true,
     "matched_keywords": [
+      "toxicity",
       "antiarrhythmic",
-      "monitoring",
-      "toxicity"
+      "monitoring"
     ]
   },
   {
@@ -6332,8 +6332,8 @@
     "is_safety_related": true,
     "matched_keywords": [
       "inr",
-      "anticoagulant",
-      "antiarrhythmic"
+      "antiarrhythmic",
+      "anticoagulant"
     ]
   },
   {
@@ -7768,8 +7768,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "follow-up"
+      "follow-up",
+      "anticoagulant"
     ]
   },
   {
@@ -7923,8 +7923,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "monitoring",
-      "safety"
+      "safety",
+      "monitoring"
     ]
   },
   {
@@ -7935,8 +7935,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "adverse",
-      "anticoagulant"
+      "anticoagulant",
+      "adverse"
     ]
   },
   {
@@ -8007,8 +8007,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "adverse",
-      "safety"
+      "safety",
+      "adverse"
     ]
   },
   {
@@ -8088,8 +8088,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "monitoring",
-      "safety"
+      "safety",
+      "monitoring"
     ]
   },
   {
@@ -8263,8 +8263,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "safety"
+      "safety",
+      "anticoagulant"
     ]
   },
   {
@@ -9016,8 +9016,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "safety"
+      "safety",
+      "anticoagulant"
     ]
   },
   {
@@ -9636,8 +9636,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "antiarrhythmic",
-      "safety"
+      "safety",
+      "antiarrhythmic"
     ]
   },
   {
@@ -9697,8 +9697,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "anticoagulant",
-      "safety"
+      "safety",
+      "anticoagulant"
     ]
   },
   {
@@ -11077,8 +11077,8 @@
     "safety_score": 3,
     "is_safety_related": true,
     "matched_keywords": [
-      "qt",
-      "follow-up"
+      "follow-up",
+      "qt"
     ]
   },
   {
@@ -11507,8 +11507,8 @@
     "safety_score": 2,
     "is_safety_related": true,
     "matched_keywords": [
-      "adverse",
-      "pt"
+      "pt",
+      "adverse"
     ]
   },
   {
