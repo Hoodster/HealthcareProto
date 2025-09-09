@@ -1,4 +1,4 @@
-import fitz
+import pymupdf as fitz
 from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
@@ -7,6 +7,16 @@ import re
 import os
 from tqdm import tqdm
 import json
+from language_model import HybridLanguageModel, GenerationConfig
+import glob
+from pathlib import Path
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed
 
 
 class AFGuidelinesProcessor:
@@ -45,8 +55,9 @@ class AFGuidelinesProcessor:
         doc = fitz.open(pdf_path)
         full_text = ""
 
-        for page_num, page in enumerate(doc):
-            text = page.get_text()
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            text = page.get_text()  # type: ignore[attr-defined]
             # Add page metadata to help with context
             full_text += f"\n--- Page {page_num + 1} ---\n{text}\n"
 
@@ -199,7 +210,7 @@ class AFGuidelinesProcessor:
         print("Creating vector index...")
         dimension = embeddings.shape[1]
         self.index = faiss.IndexFlatL2(dimension)
-        self.index.add(np.array(embeddings))
+        self.index.add(np.array(embeddings).astype('float32'))  # type: ignore[arg-type]
 
         # Store chunks and metadata
         self.chunks = texts
@@ -249,7 +260,7 @@ class AFGuidelinesProcessor:
         query_embedding = self.model.encode([query])
 
         # Search
-        distances, indices = self.index.search(np.array(query_embedding), k * 2 if safety_only else k)
+        distances, indices = self.index.search(np.array(query_embedding).astype('float32'), k * 2 if safety_only else k)  # type: ignore[arg-type]
 
         # Get results with metadata
         results = []
@@ -375,9 +386,177 @@ class AFGuidelinesProcessor:
         return report
 
 
+def choose_pdf_files():
+    """Interactive function to choose PDF files or directories to process"""
+    print("\n📁 Choose PDF files to process:")
+    print("1. Enter a specific PDF file path")
+    print("2. Enter a directory path (will process all PDFs in directory)")
+    print("3. Use default path (/Users/kuba/Downloads/2024_AF.pdf)")
+    print("4. Browse current directory for PDFs")
+    
+    choice = input("\nEnter your choice (1-4): ").strip()
+    
+    if choice == "1":
+        file_path = input("Enter PDF file path: ").strip()
+        if file_path.startswith('"') and file_path.endswith('"'):
+            file_path = file_path[1:-1]  # Remove quotes
+        if os.path.exists(file_path) and file_path.lower().endswith('.pdf'):
+            return [file_path]
+        else:
+            print(f"❌ File not found or not a PDF: {file_path}")
+            return []
+    
+    elif choice == "2":
+        dir_path = input("Enter directory path: ").strip()
+        if dir_path.startswith('"') and dir_path.endswith('"'):
+            dir_path = dir_path[1:-1]  # Remove quotes
+        if os.path.exists(dir_path) and os.path.isdir(dir_path):
+            pdf_files = glob.glob(os.path.join(dir_path, "*.pdf"))
+            if pdf_files:
+                print(f"Found {len(pdf_files)} PDF files:")
+                for i, pdf in enumerate(pdf_files, 1):
+                    print(f"  {i}. {os.path.basename(pdf)}")
+                return pdf_files
+            else:
+                print(f"❌ No PDF files found in directory: {dir_path}")
+                return []
+        else:
+            print(f"❌ Directory not found: {dir_path}")
+            return []
+    
+    elif choice == "3":
+        default_path = "/Users/kuba/Downloads/2024_AF.pdf"
+        if os.path.exists(default_path):
+            return [default_path]
+        else:
+            print(f"❌ Default file not found: {default_path}")
+            return []
+    
+    elif choice == "4":
+        current_dir = os.getcwd()
+        pdf_files = glob.glob(os.path.join(current_dir, "*.pdf"))
+        if pdf_files:
+            print(f"Found {len(pdf_files)} PDF files in current directory:")
+            for i, pdf in enumerate(pdf_files, 1):
+                print(f"  {i}. {os.path.basename(pdf)}")
+            
+            try:
+                selected = input("Enter file numbers to process (e.g., 1,3,5 or 'all'): ").strip()
+                if selected.lower() == 'all':
+                    return pdf_files
+                else:
+                    indices = [int(x.strip()) - 1 for x in selected.split(',')]
+                    return [pdf_files[i] for i in indices if 0 <= i < len(pdf_files)]
+            except (ValueError, IndexError):
+                print("❌ Invalid selection")
+                return []
+        else:
+            print(f"❌ No PDF files found in current directory: {current_dir}")
+            return []
+    
+    else:
+        print("❌ Invalid choice")
+        return []
+
+
+def process_multiple_pdfs(processor: AFGuidelinesProcessor, pdf_files: List[str], output_dir: str):
+    """Process multiple PDF files and combine their embeddings"""
+    if not pdf_files:
+        print("❌ No PDF files to process")
+        return False
+    
+    print(f"\n🔄 Processing {len(pdf_files)} PDF file(s)...")
+    
+    all_chunks_with_metadata = []
+    
+    for i, pdf_path in enumerate(pdf_files, 1):
+        print(f"\n📄 Processing file {i}/{len(pdf_files)}: {os.path.basename(pdf_path)}")
+        
+        try:
+            # Extract and clean text
+            raw_text = processor.extract_text_from_pdf(pdf_path)
+            cleaned_text = processor.clean_text(raw_text)
+            
+            # Split into chunks with metadata
+            chunks_with_metadata = processor.split_text_by_sections(cleaned_text)
+            
+            # Add source file information to each chunk
+            for chunk in chunks_with_metadata:
+                chunk["source_file"] = os.path.basename(pdf_path)
+                chunk["source_path"] = pdf_path
+            
+            # Identify safety-related sections
+            chunks_with_metadata = processor.identify_drug_safety_sections(chunks_with_metadata)
+            
+            all_chunks_with_metadata.extend(chunks_with_metadata)
+            
+        except Exception as e:
+            print(f"❌ Error processing {pdf_path}: {e}")
+            continue
+    
+    if not all_chunks_with_metadata:
+        print("❌ No content extracted from any PDF files")
+        return False
+    
+    # Generate embeddings for all chunks
+    print(f"\n🧠 Generating embeddings for {len(all_chunks_with_metadata)} chunks...")
+    texts = [chunk["text"] for chunk in all_chunks_with_metadata]
+    embeddings = processor.model.encode(texts, show_progress_bar=True)
+    
+    # Create FAISS index
+    print("🔍 Creating vector index...")
+    dimension = embeddings.shape[1]
+    processor.index = faiss.IndexFlatL2(dimension)
+    processor.index.add(np.array(embeddings).astype('float32'))  # type: ignore[arg-type]
+    
+    # Store chunks and metadata
+    processor.chunks = texts
+    processor.metadata = all_chunks_with_metadata
+    
+    # Create output directory if needed
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        print(f"📁 Created output directory: {output_dir}")
+    
+    # Save data
+    if output_dir:
+        index_path = os.path.join(output_dir, "af_guidelines.faiss")
+        chunks_path = os.path.join(output_dir, "chunks.json")
+        
+        print(f"💾 Saving index to {index_path}")
+        faiss.write_index(processor.index, index_path)
+        
+        print(f"💾 Saving chunks to {chunks_path}")
+        with open(chunks_path, "w", encoding="utf-8") as f:
+            json.dump(processor.metadata, f, indent=2, ensure_ascii=False)
+        
+        # Save processing summary
+        summary_path = os.path.join(output_dir, "processing_summary.txt")
+        with open(summary_path, "w", encoding="utf-8") as f:
+            f.write(f"Processing Summary\n")
+            f.write(f"================\n\n")
+            f.write(f"Processed files: {len(pdf_files)}\n")
+            f.write(f"Total chunks: {len(all_chunks_with_metadata)}\n")
+            f.write(f"Safety-related chunks: {len([c for c in all_chunks_with_metadata if c.get('is_safety_related', False)])}\n\n")
+            f.write(f"Source files:\n")
+            for pdf in pdf_files:
+                f.write(f"  - {pdf}\n")
+        
+        print(f"📋 Saved processing summary to {summary_path}")
+        print(f"✅ Saved processed data to {output_dir}")
+    
+    return True
+
+
 class AFGuidelinesQA:
     def __init__(self, processor: AFGuidelinesProcessor):
         self.processor = processor
+        self.current_provider = "openai"  # Default to OpenAI/GPT
+        # Lazy init HybridLanguageModel; user can set env vars for models
+        try:
+            self.lm = HybridLanguageModel()
+        except Exception:
+            self.lm = None
 
     def answer_query(self, query: str, k: int = 5) -> str:
         """Generate an answer for a drug safety query"""
@@ -389,26 +568,43 @@ class AFGuidelinesQA:
 
         # Prepare context for answering
         context = "\n\n".join([res["text"] for res in results])
-
-        # For this implementation, we're just returning the context
-        # In a full implementation, you would use an LLM to generate an answer
-        answer = self._format_answer(query, results)
-        return answer
+        # If hybrid LM available, create a focused prompt and try both providers (auto fallbacks)
+        if self.lm:
+            prompt = (
+                "You are an assistant summarizing AF (atrial fibrillation) drug safety guidelines.\n"
+                f"Question: {query}\n"
+                "Use ONLY the provided context. Be concise (<=180 words).\n"
+                "Context:\n" + context + "\n---\nAnswer:" )
+            try:
+                gens = self.lm.generate(prompt, provider=self.current_provider, config=GenerationConfig(max_new_tokens=220, temperature=0.4))
+                # Pick first generation from whichever provider responded
+                provider = next(iter(gens))
+                model_answer = gens[provider][0]["text"].strip()
+                answer = self._format_answer(query, results)
+                answer = answer + "\n\n### Synthesized Answer (" + provider + ")\n\n" + model_answer
+                return answer
+            except Exception as e:
+                # Fall back to simple reference answer
+                return self._format_answer(query, results) + f"\n\n*LLM synthesis unavailable: {e}*"
+        else:
+            # Fallback: return formatted context
+            return self._format_answer(query, results)
 
     def _format_answer(self, query: str, results: List[Dict]) -> str:
         """Format the answer based on retrieved chunks"""
-        answer = f"Based on the ESC AF Guidelines, here's information about '{query}':\n\n"
+        answer = f"Based on the loaded guidelines, here's information about '{query}':\n\n"
 
         for i, res in enumerate(results):
             section_title = res.get("section", f"Section {i + 1}")
-            answer += f"### {section_title}\n\n"
-
-            # Extract the most relevant sentences
-            sentences = re.split(r'(?<=[.!?])\s+', res["text"])
+            source_file = res.get("source_file", "Unknown source")
+            
+            answer += f"### {section_title}\n"
+            answer += f"*Source: {source_file}*"
 
             # Include page number if available
             if res.get("page"):
-                answer += f"*From page {res['page']}*\n\n"
+                answer += f" | *Page {res['page']}*"
+            answer += "\n\n"
 
             # Add the text content with some formatting
             answer += f"{res['text'][:1200]}{'...' if len(res['text']) > 1200 else ''}\n\n"
@@ -418,16 +614,14 @@ class AFGuidelinesQA:
                 answer += f"*This section contains {res['safety_score']} safety-related references*\n\n"
 
         answer += "---\n"
-        answer += "Note: This information is extracted directly from the ESC AF Guidelines. Always consult the full guidelines and a healthcare professional for complete information."
+        answer += "Note: This information is extracted directly from the processed guidelines. Always consult the full guidelines and a healthcare professional for complete information."
 
         return answer
 
 
 # Usage example
 def demo():
-    pdf_path = "/Users/kuba/Downloads/2024_AF.pdf"  # Your PDF path
     output_dir = "./processed_data"
-
     processor = AFGuidelinesProcessor()
 
     # Check if processed data exists
@@ -439,24 +633,19 @@ def demo():
         if os.path.exists(index_path) and os.path.exists(chunks_path):
             print("Found existing processed data. Loading...")
             processor.load_from_disk(index_path, chunks_path)
+            
+            # Show summary of loaded data
+            if processor.metadata:
+                source_files = set(chunk.get("source_file", "Unknown") for chunk in processor.metadata)
+                print(f"📊 Loaded {len(processor.chunks)} chunks from {len(source_files)} file(s)")
+                if len(source_files) <= 5:  # Don't spam if too many files
+                    for file in sorted(source_files):
+                        print(f"   - {file}")
         else:
-            # Process PDF if data doesn't exist
-            print("No existing data found. Processing PDF...")
-            if os.path.exists(pdf_path):
-                processor.process_pdf(pdf_path, output_dir=output_dir)
-            else:
-                print(f"PDF file not found: {pdf_path}")
-                print("Please provide the correct path to your PDF file.")
-                return
+            print("No existing processed data found.")
+            print("Use the 'embed' command to process PDF files.")
     except Exception as e:
         print(f"Error during initialization: {str(e)}")
-        print("Processing PDF as fallback...")
-        if os.path.exists(pdf_path):
-            processor.process_pdf(pdf_path, output_dir=output_dir)
-        else:
-            print(f"PDF file not found: {pdf_path}")
-            print("Please provide the correct path to your PDF file.")
-            return
 
     # Create QA system
     qa_system = AFGuidelinesQA(processor)
@@ -464,6 +653,9 @@ def demo():
     # Interactive query loop
     print("\n=== AF Guidelines Drug Safety Information System ===")
     print("Type 'report' to generate a safety monitoring report")
+    print("Type 'embed' to process PDF files (choose files/directories interactively)")
+    print("Type 'status' to show current data status")
+    print("Type 'provider' to switch between openai/local/auto language models")
     print("Type 'exit' to quit")
 
     while True:
@@ -472,6 +664,9 @@ def demo():
         if query.lower() in ["exit", "quit"]:
             break
         elif query.lower() == "report":
+            if not processor.metadata:
+                print("❌ No data loaded. Use 'embed' command first to process PDF files.")
+                continue
             try:
                 report = processor.generate_safety_report()
                 print("\n📋 Drug Safety Monitoring Report:\n")
@@ -482,7 +677,62 @@ def demo():
                 print("\nReport saved to af_safety_report.md")
             except Exception as e:
                 print(f"Error generating report: {str(e)}")
+        elif query.lower() == "embed":
+            try:
+                pdf_files = choose_pdf_files()
+                if pdf_files:
+                    success = process_multiple_pdfs(processor, pdf_files, output_dir)
+                    if success:
+                        print("✅ Embeddings updated successfully!")
+                        # Update QA system with new processor
+                        qa_system = AFGuidelinesQA(processor)
+                    else:
+                        print("❌ Failed to process PDF files.")
+                else:
+                    print("❌ No PDF files selected.")
+            except Exception as e:
+                print(f"Error during embedding: {e}")
+        elif query.lower() == "status":
+            if processor.metadata:
+                source_files = set(chunk.get("source_file", "Unknown") for chunk in processor.metadata)
+                safety_chunks = len([c for c in processor.metadata if c.get("is_safety_related", False)])
+                print(f"\n📊 Current Data Status:")
+                print(f"   Total chunks: {len(processor.chunks)}")
+                print(f"   Safety-related chunks: {safety_chunks}")
+                print(f"   Source files ({len(source_files)}):")
+                for file in sorted(source_files):
+                    file_chunks = len([c for c in processor.metadata if c.get("source_file") == file])
+                    print(f"     - {file}: {file_chunks} chunks")
+                print(f"   Index available: {'Yes' if processor.index else 'No'}")
+            else:
+                print("❌ No data loaded. Use 'embed' command to process PDF files.")
+        elif query.lower() == "provider":
+            # Provider switching command
+            print("\n🔧 Language Model Provider Options:")
+            print("1. openai - Use GPT (OpenAI) models")
+            print("2. local - Use local/HuggingFace models")  
+            print("3. auto - Auto-select (prefers local first)")
+            print("4. both - Compare both providers side-by-side")
+            
+            choice = input("Choose provider (1-4): ").strip()
+            if choice == "1":
+                qa_system.current_provider = "openai"
+                print("✅ Switched to OpenAI (GPT) provider")
+            elif choice == "2":
+                qa_system.current_provider = "local"
+                print("✅ Switched to local model provider")
+            elif choice == "3":
+                qa_system.current_provider = "auto"
+                print("✅ Switched to auto-select provider")
+            elif choice == "4":
+                qa_system.current_provider = "both"
+                print("✅ Switched to both providers (comparison mode)")
+            else:
+                print("❌ Invalid choice. Current provider unchanged.")
         else:
+            if not processor.metadata:
+                print("❌ No data loaded. Use 'embed' command first to process PDF files.")
+                continue
             try:
                 answer = qa_system.answer_query(query)
                 print("\n📚 Answer:\n")
