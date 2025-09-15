@@ -208,9 +208,10 @@ class AFGuidelinesProcessor:
 
         # Create FAISS index
         print("Creating vector index...")
-        dimension = embeddings.shape[1]
+        embeddings_np = np.array(embeddings)
+        dimension = embeddings_np.shape[1]
         self.index = faiss.IndexFlatL2(dimension)
-        self.index.add(np.array(embeddings).astype('float32'))  # type: ignore[arg-type]
+        self.index.add(embeddings_np.astype('float32'))  # type: ignore[arg-type]
 
         # Store chunks and metadata
         self.chunks = texts
@@ -502,12 +503,13 @@ def process_multiple_pdfs(processor: AFGuidelinesProcessor, pdf_files: List[str]
     print(f"\n🧠 Generating embeddings for {len(all_chunks_with_metadata)} chunks...")
     texts = [chunk["text"] for chunk in all_chunks_with_metadata]
     embeddings = processor.model.encode(texts, show_progress_bar=True)
+    embeddings_np = np.array(embeddings)
     
     # Create FAISS index
     print("🔍 Creating vector index...")
-    dimension = embeddings.shape[1]
+    dimension = embeddings_np.shape[1]
     processor.index = faiss.IndexFlatL2(dimension)
-    processor.index.add(np.array(embeddings).astype('float32'))  # type: ignore[arg-type]
+    processor.index.add(embeddings_np.astype('float32'))  # type: ignore[arg-type]
     
     # Store chunks and metadata
     processor.chunks = texts
