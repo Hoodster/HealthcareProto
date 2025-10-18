@@ -35,6 +35,10 @@ OPENAI_API_KEY=your_openai_api_key_here
 LOGLEVEL=INFO
 ```
 
+Notes:
+- Prefer `OPENAI_API_KEY`. The code may warn about legacy names like `OPEN_API_KEY` but `OPENAI_API_KEY` is recommended.
+- On macOS you may see an SSL-related warning about LibreSSL; it's usually harmless for running the CLI.
+
 ### 3. PDF Data (Optional)
 
 You can now choose PDF files interactively when using the `embed` command, but if you want to set up a default:
@@ -99,6 +103,61 @@ python language_model.py --provider openai --max-new 100 "What are AF monitoring
 - Automatically falls back if one backend fails
 - Synthesizes answers using available model
 
+## RAG: Role komponentów (krótko, po polsku)
+
+- `Document loader / Preprocessor`
+  - Zadanie: wczytuje pliki (PDF), ekstraktuje tekst i obrazy, oczyszcza (np. usuwa nagłówki/stopki) i normalizuje tekst.
+  - Wejście: ścieżka do pliku PDF lub katalogu.
+  - Wyjście: surowy tekst, metadane (źródło, strona, offset).
+  - Plik powiązany: `processor/embedder.py` (albo dedykowany loader).
+
+- `Chunker / Segmenter`
+  - Zadanie: dzieli długi tekst na sensowne fragmenty (chunki) o określonej długości i overlapie.
+  - Wejście: oczyszczony tekst.
+  - Wyjście: lista chunków z metadanymi (source, offset, length).
+  - Uwaga: wpływa na jakość wyszukiwania i koszt embedowania.
+
+- `Embedder`
+  - Zadanie: zamienia chunki na wektory (embeddings) przy użyciu modelu (OpenAI lub lokalny HF).
+  - Wejście: lista chunków (tekst).
+  - Wyjście: macierz wektorów i odpowiadające chunki/metadane.
+  - Plik powiązany: `processor/embedder.py`.
+
+- `Indexer / Vector store (np. FAISS)`
+  - Zadanie: przechowuje wektory, umożliwia szybkie wyszukiwanie podobieństwa (ANN).
+  - Wejście: wektory + metadane.
+  - Wyjście: indeks na dysku (np. `processed_data/af_guidelines.faiss`).
+
+- `Retriever`
+  - Zadanie: dla zapytania tworzy embedding zapytania i zwraca top-N najbardziej podobnych chunków z indeksu.
+  - Wejście: zapytanie tekstowe.
+  - Wyjście: lista relewantnych chunków + score.
+  - Uwaga: możliwe hybrydowe podejście semantic + BM25.
+
+- `Reranker / Scorer`
+  - Zadanie: ponownie ocenia pobrane chunki (np. cross-encoder) i poprawia kolejność przed przekazaniem do LLM.
+
+- `Reader / Generator (LLM)`
+  - Zadanie: generuje odpowiedź używając pobranych kontekstów; scala informacje i formatuje output.
+  - Wejście: zapytanie + top-K chunków (kontekst).
+  - Wyjście: odpowiedź tekstowa, opcjonalnie cytaty/źródła.
+  - Plik powiązany: `language_model.py` / `HybridLanguageModel`.
+
+- `Synthesizer / Answer aggregator`
+  - Zadanie: scala odpowiedzi z różnych backendów (lokalny HF vs OpenAI), fuzjonuje lub wybiera najlepszy output.
+
+- `Source tracking / Attribution`
+  - Zadanie: dołącza do fragmentów/odpowiedzi metadane źródłowe (plik, strona, paragraf), ułatwiając weryfikację.
+
+- `Orchestrator / CLI (main.py)`
+  - Zadanie: obsługuje przepływ: embed → index → query → retrieve → answer; interfejs CLI.
+
+- `Cache / Persistence`
+  - Zadanie: buforuje embeddingi, indeks i wyniki zapytań, zmniejszając koszty i czas odpowiadania.
+
+Kluczowe wskazówki implementacyjne:
+- Spójne metadane przy chunkowaniu, normalizacja wektorów przed indeksowaniem, batching embedów, oraz jasne mapowanie chunk → źródło dla atrybucji.
+
 ## Architecture
 
 ```
@@ -140,10 +199,10 @@ urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled 
 This is a harmless warning on macOS. OpenAI API calls will still work.
 
 ### GPU/Model Loading Issues
-If you see "No GPU found" or model loading errors:
-1. The system will automatically fall back to OpenAI
-2. Use a smaller local model: `HybridLanguageModel(default_hf_model_id="distilgpt2")`
-3. Disable auto-loading: `HybridLanguageModel(auto_load_hf_model=False)`
+- If you see "No GPU found" or model loading errors:
+  1. The system will automatically fall back to OpenAI
+  2. Use a smaller local model: `HybridLanguageModel(default_hf_model_id="distilgpt2")`
+  3. Disable auto-loading: `HybridLanguageModel(auto_load_hf_model=False)`
 
 ### Environment Variables
 - Use `OPENAI_API_KEY` (preferred) instead of `OPEN_API_KEY`
@@ -153,7 +212,7 @@ If you see "No GPU found" or model loading errors:
 
 To add new models or backends:
 1. Extend `HybridLanguageModel` in `language_model.py`
-2. Add new generation methods following the pattern `_generate_<backend>`
+2. Add methods `_generate_<backend>` following the existing pattern
 3. Update the `generate()` method to handle the new provider
 
 ## License
