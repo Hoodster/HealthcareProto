@@ -26,10 +26,10 @@ class ApplicationConfig:
 ApplicationSetupInstance = Dict[str, object]
 
 class ApplicationSetup(ABC):
-    _retriever: RetrieverService = None
-    _embedding: EmbeddingService = None
-    _database: DatabaseService = None
-    _config: ApplicationConfig = None
+    _retriever: RetrieverService
+    _embedder: EmbeddingService
+    _database: DatabaseService
+    _config: ApplicationConfig
 
     def __init__(self,
                  retriever: RetrieverService,

@@ -11,6 +11,8 @@ from language_model import HybridLanguageModel, GenerationConfig
 import glob
 from pathlib import Path
 
+from v010.utils.embedding.formatter import format_answer
+
 # Load environment variables from .env file
 try:
     from dotenv import load_dotenv
@@ -582,43 +584,15 @@ class AFGuidelinesQA:
                 # Pick first generation from whichever provider responded
                 provider = next(iter(gens))
                 model_answer = gens[provider][0]["text"].strip()
-                answer = self._format_answer(query, results)
+                answer = format_answer(query, results)
                 answer = answer + "\n\n### Synthesized Answer (" + provider + ")\n\n" + model_answer
                 return answer
             except Exception as e:
                 # Fall back to simple reference answer
-                return self._format_answer(query, results) + f"\n\n*LLM synthesis unavailable: {e}*"
+                return format_answer(query, results) + f"\n\n*LLM synthesis unavailable: {e}*"
         else:
             # Fallback: return formatted context
-            return self._format_answer(query, results)
-
-    def _format_answer(self, query: str, results: List[Dict]) -> str:
-        """Format the answer based on retrieved chunks"""
-        answer = f"Based on the loaded guidelines, here's information about '{query}':\n\n"
-
-        for i, res in enumerate(results):
-            section_title = res.get("section", f"Section {i + 1}")
-            source_file = res.get("source_file", "Unknown source")
-            
-            answer += f"### {section_title}\n"
-            answer += f"*Source: {source_file}*"
-
-            # Include page number if available
-            if res.get("page"):
-                answer += f" | *Page {res['page']}*"
-            answer += "\n\n"
-
-            # Add the text content with some formatting
-            answer += f"{res['text'][:1200]}{'...' if len(res['text']) > 1200 else ''}\n\n"
-
-            # Add safety score information if available
-            if "safety_score" in res and res["safety_score"] > 0:
-                answer += f"*This section contains {res['safety_score']} safety-related references*\n\n"
-
-        answer += "---\n"
-        answer += "Note: This information is extracted directly from the processed guidelines. Always consult the full guidelines and a healthcare professional for complete information."
-
-        return answer
+            return format_answer(query, results)
 
 
 # Usage example
