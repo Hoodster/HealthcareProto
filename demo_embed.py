@@ -40,6 +40,7 @@ def demo_embed_functionality():
     print("✅ Interactive file browser")
     print("✅ Directory scanning for PDFs")
     print("✅ Processing summary generation")
+    print("Processing ")
     
     # Create test directory
     test_dir = create_test_pdfs()

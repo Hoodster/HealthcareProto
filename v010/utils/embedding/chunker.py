@@ -1,32 +1,15 @@
-"""Utility functions for splitting long documents into overlapping chunks.
+class Chunker:
+    chunked_text: str
+    
+    def _init__(self, text: str, chunk_size: int = 500, overlap: int = 50):
+        self.text = text
+        self.chunk_size = chunk_size
+        self.overlap = overlap
+        self.chunked_text = self._chunk_text()
 
-Chunking strategy:
- - Fixed token/character window (approx via character length)
- - Overlap to preserve context continuity
-Output schema per chunk:
- {"id": <int>, "chunk": <str>, "start": <int>, "end": <int>}
-"""
-
-from typing import List
-
-
-def chunk_text(text: str, chunk_size: int = 800, overlap: int = 100) -> List[dict]:
-	if chunk_size <= 0:
-		raise ValueError("chunk_size must be > 0")
-	if overlap >= chunk_size:
-		overlap = max(0, chunk_size // 4)  # clamp to a sensible smaller value
-
-	chunks: List[dict] = []
-	start = 0
-	idx = 0
-	length = len(text)
-	while start < length:
-		end = min(length, start + chunk_size)
-		segment = text[start:end]
-		chunks.append({"id": idx, "chunk": segment, "start": start, "end": end})
-		idx += 1
-		if end == length:
-			break
-		start = end - overlap  # overlap backwards
-	return chunks
-
+    def _chunk_text(self) -> str:
+        for i in range(0, len(self.text), self.chunk_size - self.overlap)
+        for i in range(0, len(self.text), self.chunk_size - self.overlap):
+            chunk = self.text[i:i + self.chunk_size]
+            self.chunked_text += chunk + "\n"
+        return self.chunked_text

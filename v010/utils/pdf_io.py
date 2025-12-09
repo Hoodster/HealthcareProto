@@ -1,4 +1,5 @@
 from PyPDF2 import PdfReader
+from py import pymupdf4llm
 
 def get_pdf_text(file_path: str) -> str:
     
@@ -14,3 +15,4 @@ def get_multiple_pdfs_text(file_paths: list[str]) -> dict[str, str]:
     for path in file_paths:
         texts[path] = get_pdf_text(path)
     return texts
+md_text = pymupdf4llm.to_markdown("input.pdf")
