@@ -1,11 +1,11 @@
 import dataclasses
 from typing import List, Dict
 
-def romat_query(self, query: str) -> str:
+def format_query(query: str) -> str:
     return f"Retrieve sections related to '{query}' from the medical guidelines."
 
 
-def format_answer(self, query: str, results: List[Dict]) -> str:
+def format_answer(query: str, results: List[Dict]) -> str:
     """Format the answer based on retrieved chunks"""
     answer = f"Based on the loaded guidelines, here's information about '{query}':\n\n"
 
@@ -22,7 +22,9 @@ def format_answer(self, query: str, results: List[Dict]) -> str:
         answer += "\n\n"
 
         # Add the text content with some formatting
-        answer += f"{res['text'][:1200]}{'...' if len(res['text']) > 1200 else ''}\n\n"
+        # fall back to 'chunk' if 'text' not present
+        content = res.get("text") or res.get("chunk") or ""
+        answer += f"{content[:1200]}{'...' if len(content) > 1200 else ''}\n\n"
 
         # Add safety score information if available
         if "safety_score" in res and res["safety_score"] > 0:
