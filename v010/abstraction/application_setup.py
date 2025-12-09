@@ -36,6 +36,11 @@ class ApplicationConfig:
 
 ApplicationSetupInstance = Dict[str, object]
 
+class ApplicationSetup(ABC):
+    _retriever: RetrieverService
+    _embedder: EmbeddingService
+    _database: DatabaseService
+    _config: ApplicationConfig
 
 class ApplicationSetup:
     def __init__(self,

@@ -1,13 +1,61 @@
-import dataclasses
+from dataclasses import dataclass
 from typing import List, Dict
 
-def format_query(query: str) -> str:
-    return f"Retrieve sections related to '{query}' from the medical guidelines."
+
+@dataclass
+class SourceInfo:
+    key: int
+    section: str
+    source_file: str
+    source_website: str
+    page: int
+
+@dataclass
+class FormattedMetaAnswer:
+    answer_text: str
+    sources: List[SourceInfo]
+
+@dataclass
+class Chunk:
+    section: str
+    source_file: str
+    page: int
+    text: str
+    safety_score: int
+
+def v010_format_answer(results: List[Chunk]) -> FormattedMetaAnswer:
+    """Format the answer based on retrieved chunks"""
+    answer = ""
+    sources = []
+    
+    for i, res in enumerate(results):
+        s_info = SourceInfo(
+            key = i + 1,
+            section=res.section if res.section else f"Unknown section {i + 1}",
+            source_file=res.source_file if res.source_file else "Unknown source",
+            source_website="https://www.google.com/",
+            page=res.page
+        )
+        sources.append(s_info)
+        
+        answer += f"{res.text}. [{s_info.key}] "
+        
+        section_title = res.section if res.section else f"Unknown section {i + 1}"
+        source_file = res.source_file if res.source_file else "Unknown source"
+
+        answer += f"### {section_title}\n"
+        answer += f"*Source: {source_file}*"
+
+    answerFormat = FormattedMetaAnswer(
+        answer_text=answer,
+        sources=sources
+    )
+    return answerFormat
 
 
 def format_answer(query: str, results: List[Dict]) -> str:
     """Format the answer based on retrieved chunks"""
-    answer = f"Based on the loaded guidelines, here's information about '{query}':\n\n"
+    answer = ""
 
     for i, res in enumerate(results):
         section_title = res.get("section", f"Section {i + 1}")
