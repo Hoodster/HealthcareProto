@@ -70,7 +70,9 @@ def format_answer(query: str, results: List[Dict]) -> str:
         answer += "\n\n"
 
         # Add the text content with some formatting
-        answer += f"{res['text'][:1200]}{'...' if len(res['text']) > 1200 else ''}\n\n"
+        # fall back to 'chunk' if 'text' not present
+        content = res.get("text") or res.get("chunk") or ""
+        answer += f"{content[:1200]}{'...' if len(content) > 1200 else ''}\n\n"
 
         # Add safety score information if available
         if "safety_score" in res and res["safety_score"] > 0:

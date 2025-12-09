@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional
 from PyPDF2 import DocumentInformation, PdfReader
 
 @dataclass
@@ -9,7 +9,7 @@ class DocumentInfo:
     text: str
     images: Dict[str, bytes]
     paged: list[str]
-    meta = DocumentInformation
+    meta: Optional[DocumentInformation] = None
 
 def load_pdf(file_path: str, file_name: str) -> DocumentInfo:
     reader = PdfReader(file_path)
@@ -32,4 +32,4 @@ def load_pdf(file_path: str, file_name: str) -> DocumentInfo:
         paged=paged,
         meta=reader.metadata
     )
-
+    

@@ -1,4 +1,7 @@
-from abc import ABC
+"""Abstract retriever service for similarity search over embedded chunks/documents."""
+
+from abc import ABC, abstractmethod
+from typing import List, Dict
 
 
 class RetrieverService(ABC):
