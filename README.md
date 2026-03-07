@@ -79,6 +79,70 @@ python test_models.py
 
 This will verify that your language model backends are working correctly.
 
+## v011 API (FastAPI)
+
+Run the API:
+
+```bash
+python3 -m uvicorn v011.api.app:app --host 127.0.0.1 --port 8000
+```
+
+Docs:
+
+- Swagger UI: http://127.0.0.1:8000/docs
+- ReDoc: http://127.0.0.1:8000/redoc
+- OpenAPI JSON: http://127.0.0.1:8000/openapi.json
+
+### Generate types from the API schema
+
+Export OpenAPI to a file (no server required):
+
+```bash
+python3 -m v011.api.export_openapi > openapi.v011.json
+```
+
+## Microsoft Entra ID auth + MFA (2FA)
+
+### Important
+
+- 2FA/MFA is enforced by Microsoft Entra ID (typically via Conditional Access). The API validates Entra JWTs; it does not implement 2FA itself.
+
+### Required env vars
+
+```bash
+# Your tenant id (GUID) or domain, e.g. contoso.onmicrosoft.com
+ENTRA_TENANT_ID=...
+
+# What your API expects in the token's aud claim.
+# Common values:
+# - api://<api-app-client-id>
+# - <api-app-client-id>
+ENTRA_API_AUDIENCE=...
+
+# Optional: used only to preconfigure Swagger UI OAuth2
+# (register a separate public client app for Swagger / SPA)
+ENTRA_SWAGGER_CLIENT_ID=...
+```
+
+### Entra setup (high level)
+
+1. Register an app for the API and expose a scope (e.g. `access_as_user`).
+2. Ensure your client requests a token for that API scope (so `aud` matches `ENTRA_API_AUDIENCE`).
+3. Enforce MFA using Conditional Access (or Security Defaults) for the users who sign in.
+
+TypeScript types (from a running server):
+
+```bash
+npx openapi-typescript http://127.0.0.1:8000/openapi.json -o v011-api.types.ts
+```
+
+Python client (optional):
+
+```bash
+python3 -m pip install openapi-python-client
+openapi-python-client generate --url http://127.0.0.1:8000/openapi.json
+```
+
 ### CLI Generation (language_model.py)
 
 ```bash

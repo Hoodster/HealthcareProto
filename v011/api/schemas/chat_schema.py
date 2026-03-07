@@ -3,35 +3,8 @@ from __future__ import annotations
 import datetime as dt
 from typing import Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
-
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=6)
-    full_name: str | None = None
-    role: str | None = None
-
-
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-
-class AuthResponse(BaseModel):
-    token: str
-    user_id: int
-    email: EmailStr
-
-
-class ProfileOut(BaseModel):
-    user_id: int
-    full_name: str | None
-    role: str | None
-    created_at: dt.datetime
-
-    class Config:
-        from_attributes = True
 
 class ChatCreate(BaseModel):
     patient_id: int | None = None
@@ -72,10 +45,3 @@ class AIChatRequest(BaseModel):
 class AIChatResponse(BaseModel):
     assistant_message: str
     model: str
-    
-
-class HistoryRecordCreate(BaseModel):
-    kind: str
-    note: str
-    occurred_at: dt.datetime | None = None
-    attachments: Optional[list[str]] = None
