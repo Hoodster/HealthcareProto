@@ -6,7 +6,7 @@ from typing import Iterator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from v011.api.config import get_database_url
+from api.config import get_database_url
 
 
 class Base(DeclarativeBase):
@@ -26,8 +26,6 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, futu
 
 
 def init_db() -> None:
-    from v011.api import models  # noqa: F401
-
     Base.metadata.create_all(bind=engine)
 
 

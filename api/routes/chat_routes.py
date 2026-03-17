@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from v011.api import schemas
-from v011.api.auth import get_current_user, get_db
-from v011.api.models import Chat, Message, Patient, User
-from v011.api.services.ai_service import AIModelService
+from api import schemas
+from api.auth import get_current_user, get_db
+from api.models import Chat, Message, Patient, User
+from api.services.ai_service import AIModelService
 
 
 router = APIRouter(prefix="/chats", tags=["chats"])
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/chats", tags=["chats"])
 
 def _get_chat(db: Session, user: User, chat_id: int) -> Chat:
     chat = db.get(Chat, chat_id)
-    if not chat or user.id not in chat.participants:
+    if not chat or user.id not in chat:
         raise HTTPException(status_code=404, detail="Chat not found")
     return chat
 

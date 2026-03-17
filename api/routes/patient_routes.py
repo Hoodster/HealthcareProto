@@ -15,7 +15,7 @@ from v011.api.services.db_service import PatientService
 router = APIRouter(prefix="/patients", tags=["patients"])
 
 
-@router.post("", response_model=Patient)
+@router.post("", response_model=schema.PatientOut)
 def create_patient(
     payload: schema.PatientCreate,
     db: Session = Depends(get_db),
@@ -24,13 +24,13 @@ def create_patient(
     return PatientService.create_patient(db, user.id, payload)
 
 @router.get("", response_model=list[schema.PatientOut])
-def list_patients(db: Session = Depends(get_db)):
+def list_patients(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return PatientService.list_patients(db)
 
 
 @router.get("/{patient_id}", response_model=schema.PatientOut)
 def get_patient(patient_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return PatientService.get_by_id(db, patient_id)
+    return PatientService.get_by_id(db, patient_id, user.id)
 
 
 @router.post("/{patient_id}/files", response_model=schema.PatientFileOut)
@@ -40,19 +40,16 @@ def add_patient_file(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    patient = PatientService.get_by_id(db, patient_id)
-    pf = PatientFile(patient_id='', filename=payload.filename, content_text=payload.content_text)
-    db.add(pf)
-    db.commit()
-    db.refresh(pf)
-    return pf
+    from v011.api.services.db_service import DocumentationService
+    return DocumentationService.attach_document(
+        db, user.id, patient_id, payload.filename, payload.content_text
+    )
 
 
 @router.get("/{patient_id}/files", response_model=list[schema.PatientFileOut])
 def list_patient_files(patient_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    patient = PatientService.get_by_id(db, patient_id)
-    stmt = select(PatientFile).where(PatientFile.patient_id == patient_id).order_by(PatientFile.created_at.desc())
-    return list(db.execute(stmt).scalars().all())
+    from v011.api.services.db_service import DocumentationService
+    return DocumentationService.list_documents(db, user.id, patient_id)
 
 
 @router.post("/{patient_id}/history", response_model=schema.PatientHistoryOut)
@@ -62,22 +59,15 @@ def add_history_entry(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    patient = PatientService.get_by_id(db, patient_id)
-    entry = PatientHistoryEntry(
-        patient_id='',
-        kind=payload.kind,
-        note=payload.note,
-        occurred_at=payload.occurred_at,
+    return PatientService.add_history_record(
+        db, user.id, patient_id, payload.kind, payload.note, payload.occurred_at
     )
-    db.add(entry)
-    db.commit()
-    db.refresh(entry)
-    return entry
 
 
 @router.get("/{patient_id}/history", response_model=list[schema.PatientHistoryOut])
 def list_history(patient_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    patient = PatientService.get_by_id(db, patient_id)
+    # Verify ownership
+    PatientService.get_by_id(db, patient_id, user.id)
     stmt = (
         select(PatientHistoryEntry)
         .where(PatientHistoryEntry.patient_id == patient_id)
@@ -87,6 +77,8 @@ def list_history(patient_id: str, db: Session = Depends(get_db), user: User = De
 
 @router.get("/{patient_id}/visits", response_model=list[schema.PatientHistoryOut])
 def list_visits(patient_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    # Verify ownership
+    PatientService.get_by_id(db, patient_id, user.id)
     stmt = (
         select(PatientHistoryEntry)
         .where(PatientHistoryEntry.patient_id == patient_id, PatientHistoryEntry.kind == "visit")
