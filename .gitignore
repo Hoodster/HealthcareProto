@@ -4,3 +4,6 @@ __pycache__/
 
 venv/
 .venv/
+.examples/
+.output/
+.idea/
