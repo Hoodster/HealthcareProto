@@ -5,11 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 
-import v011.api.schemas as schema
-from v011.api.auth import get_current_user, get_db
-from v011.api.models import Patient, PatientFile, PatientHistoryEntry, User
-from v011.api.schemas.patient_schema import PatientCreate
-from v011.api.services.db_service import PatientService
+import api.schemas as schema
+from api.auth import get_current_user, get_db
+from api.models import PatientHistoryEntry, User
+from api.services.db_service import PatientService
 
 
 router = APIRouter(prefix="/patients", tags=["patients"])
@@ -40,7 +39,7 @@ def add_patient_file(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    from v011.api.services.db_service import DocumentationService
+    from api.services.db_service import DocumentationService
     return DocumentationService.attach_document(
         db, user.id, patient_id, payload.filename, payload.content_text
     )
@@ -48,7 +47,7 @@ def add_patient_file(
 
 @router.get("/{patient_id}/files", response_model=list[schema.PatientFileOut])
 def list_patient_files(patient_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    from v011.api.services.db_service import DocumentationService
+    from api.services.db_service import DocumentationService
     return DocumentationService.list_documents(db, user.id, patient_id)
 
 

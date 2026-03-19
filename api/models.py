@@ -7,7 +7,7 @@ from uuid import uuid4
 from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from v011.api.db import Base
+from api.db import Base
 
 class User(Base):
     __tablename__ = "users"

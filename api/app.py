@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from v011.api.config import load_env
-from v011.api.db import init_db
-from v011.api.routes.ai_routes import router as ai_router
-from v011.api.routes.chat_routes import router as chat_router
-from v011.api.routes.patient_routes import router as patient_router
+from api.config import load_env
+from api.db import init_db
+from api.routes.ai_routes import router as ai_router
+from api.routes.chat_routes import router as chat_router
+from api.routes.patient_routes import router as patient_router
 
 
 def create_app() -> FastAPI:

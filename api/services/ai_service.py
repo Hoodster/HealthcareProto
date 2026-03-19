@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
 
-from v011.api.config import get_openai_api_key, get_openai_model
+from api.config import get_openai_api_key, get_openai_model
 
 SYSTEM_DEFAULT_PROMPT = (
     "You are a helpful and precise assistant for healthcare professionals. "

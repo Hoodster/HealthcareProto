@@ -1,10 +1,10 @@
-from v011.api.schemas.auth_schema import (
+from api.schemas.auth_schema import (
     AuthResponse,
     LoginRequest,
     ProfileOut,
     RegisterRequest,
 )
-from v011.api.schemas.chat_schema import (
+from api.schemas.chat_schema import (
     AIChatRequest,
     AIChatResponse,
     ChatCreate,
@@ -12,7 +12,7 @@ from v011.api.schemas.chat_schema import (
     MessageCreate,
     MessageOut,
 )
-from v011.api.schemas.patient_schema import (
+from api.schemas.patient_schema import (
     PatientCreate,
     PatientFileCreate,
     PatientFileOut,
@@ -20,7 +20,7 @@ from v011.api.schemas.patient_schema import (
     PatientHistoryOut,
     PatientOut,
 )
-from v011.api.schemas.profile_schema import *  # noqa: F401, F403
+from api.schemas.profile_schema import *  # noqa: F401, F403
 
 __all__ = [
     # auth

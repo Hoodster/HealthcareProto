@@ -5,9 +5,9 @@ from datetime import datetime
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from v011.api import schemas
-from v011.api.models import Patient, PatientFile, PatientHistoryEntry
-from v011.api.services.ai_service import AIModelService
+from api import schemas
+from api.models import Patient, PatientFile, PatientHistoryEntry
+from api.services.ai_service import AIModelService
 
 
 class DbServiceBase(ABC):

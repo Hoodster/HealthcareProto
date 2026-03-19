@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from v011.api.services.ai_service import AIModelService
+from api.services.ai_service import AIModelService
 
 
 router = APIRouter(prefix="/ai", tags=["ai"])

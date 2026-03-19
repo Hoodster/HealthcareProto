@@ -10,8 +10,8 @@ import passlib.context
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from v011.api.db import get_db_session
-from v011.api.models import User
+from api.db import get_db_session
+from api.models import User
 
 
 pwd_context = passlib.context.CryptContext(schemes=["bcrypt"], deprecated="auto")
