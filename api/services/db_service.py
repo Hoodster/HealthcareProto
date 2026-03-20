@@ -5,7 +5,7 @@ from datetime import datetime
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from api import schemas
+import api.schemas as schemas
 from api.models import Patient, PatientFile, PatientHistoryEntry
 from api.services.ai_service import AIModelService
 
