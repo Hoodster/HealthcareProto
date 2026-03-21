@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 
-import api.schemas as schema
+import models.schemas as schema
 from api.auth import get_current_user, get_db
-from api.models import PatientHistoryEntry, User
-from api.services.db_service import PatientService
+from api.models import User
+from api.services.db_service import DocumentationService, PatientService
 
 
 router = APIRouter(prefix="/patients", tags=["patients"])
@@ -24,7 +23,7 @@ def create_patient(
 
 @router.get("", response_model=list[schema.PatientOut])
 def list_patients(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return PatientService.list_patients(db)
+    return PatientService.list_patients(db, user.id)
 
 
 @router.get("/{patient_id}", response_model=schema.PatientOut)
@@ -39,7 +38,6 @@ def add_patient_file(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    from api.services.db_service import DocumentationService
     return DocumentationService.attach_document(
         db, user.id, patient_id, payload.filename, payload.content_text
     )
@@ -47,7 +45,6 @@ def add_patient_file(
 
 @router.get("/{patient_id}/files", response_model=list[schema.PatientFileOut])
 def list_patient_files(patient_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    from api.services.db_service import DocumentationService
     return DocumentationService.list_documents(db, user.id, patient_id)
 
 
@@ -65,22 +62,8 @@ def add_history_entry(
 
 @router.get("/{patient_id}/history", response_model=list[schema.PatientHistoryOut])
 def list_history(patient_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    # Verify ownership
-    PatientService.get_by_id(db, patient_id, user.id)
-    stmt = (
-        select(PatientHistoryEntry)
-        .where(PatientHistoryEntry.patient_id == patient_id)
-        .order_by(PatientHistoryEntry.created_at.desc())
-    )
-    return list(db.execute(stmt).scalars().all())
+    return PatientService.list_history(db, user.id, patient_id)
 
 @router.get("/{patient_id}/visits", response_model=list[schema.PatientHistoryOut])
 def list_visits(patient_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    # Verify ownership
-    PatientService.get_by_id(db, patient_id, user.id)
-    stmt = (
-        select(PatientHistoryEntry)
-        .where(PatientHistoryEntry.patient_id == patient_id, PatientHistoryEntry.kind == "visit")
-        .order_by(PatientHistoryEntry.created_at.desc())
-    )
-    return list(db.execute(stmt).scalars().all())
+    return PatientService.list_history(db, user.id, patient_id, kind="visit")

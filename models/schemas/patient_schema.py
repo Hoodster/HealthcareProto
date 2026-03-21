@@ -14,11 +14,11 @@ class PatientCreate(BaseModel):
 
 
 class PatientOut(BaseModel):
-    id: int
+    id: str
     first_name: str
     last_name: str
     dob: dt.date | None
-    sex: PatientSex
+    sex: PatientSex | None
     created_at: dt.datetime
 
     class Config:
@@ -31,7 +31,7 @@ class PatientFileCreate(BaseModel):
 
 
 class PatientFileOut(BaseModel):
-    id: int
+    id: str
     filename: str
     content_text: str
     created_at: dt.datetime

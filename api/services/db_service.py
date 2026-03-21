@@ -1,11 +1,12 @@
 from abc import ABC
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-import api.schemas as schemas
+import models.schemas as schemas
 from api.models import Patient, PatientFile, PatientHistoryEntry
 from api.services.ai_service import AIModelService
 
@@ -37,9 +38,12 @@ class PatientService(DbServiceBase):
         return patient
     
     @staticmethod
-    def list_patients(db: Session) -> list[Patient]:
+    def list_patients(db: Session, user_id: str) -> list[Patient]:
         """List all patients for a user"""
-        return db.query(Patient).all()
+        stmt = select(Patient).where(Patient.user_id == user_id).order_by(
+            Patient.created_at.desc()
+        )
+        return list(db.execute(stmt).scalars().all())
     
     @staticmethod
     def get_by_id(db: Session, patient_id: str, user_id: str) -> Patient:
@@ -75,6 +79,26 @@ class PatientService(DbServiceBase):
         db.commit()
         db.refresh(entry)
         return entry
+
+    @staticmethod
+    def list_history(
+        db: Session,
+        user_id: str,
+        patient_id: str,
+        *,
+        kind: str | None = None,
+    ) -> list[PatientHistoryEntry]:
+        """List patient history entries with optional kind filtering"""
+        PatientService.get_by_id(db, patient_id, user_id)
+
+        stmt = select(PatientHistoryEntry).where(
+            PatientHistoryEntry.patient_id == patient_id
+        )
+        if kind is not None:
+            stmt = stmt.where(PatientHistoryEntry.kind == kind)
+
+        stmt = stmt.order_by(PatientHistoryEntry.created_at.desc())
+        return list(db.execute(stmt).scalars().all())
     
     @staticmethod
     def summarize_patient_profile(db: Session, patient_id: str, user_id: str) -> str:

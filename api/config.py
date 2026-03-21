@@ -2,18 +2,11 @@ from __future__ import annotations
 
 import os
 
-from dotenv import load_dotenv
-
-
-def load_env(dotenv_path: str = ".env") -> None:
-    load_dotenv(dotenv_path, override=False)
-
-
 def get_database_url() -> str:
     return (
         os.getenv("V011_DATABASE_URL")
         or os.getenv("DATABASE_URL")
-        or "sqlite:///./v011_app.db"
+        or "sqlite:///.output/application.db"
     )
 
 
