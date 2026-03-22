@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 
 import models.schemas as schema
 from api.auth import get_current_user, get_db
 from api.models import User
-from api.services.db_service import DocumentationService, PatientService
+from api.services.patient_service import DocumentationService, PatientService
 
 
 router = APIRouter(prefix="/patients", tags=["patients"])
@@ -61,8 +61,13 @@ def add_history_entry(
 
 
 @router.get("/{patient_id}/history", response_model=list[schema.PatientHistoryOut])
-def list_history(patient_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return PatientService.list_history(db, user.id, patient_id)
+def list_history(
+    patient_id: str,
+    kind: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return PatientService.list_history(db, user.id, patient_id, kind=kind)
 
 @router.get("/{patient_id}/visits", response_model=list[schema.PatientHistoryOut])
 def list_visits(patient_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):

@@ -1,23 +1,15 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from api import schemas
+import models.schemas as schemas
 from api.auth import get_current_user, get_db
-from api.models import Chat, Message, Patient, User
-from api.services.ai_service import AIModelService
+from api.models import User
+from api.services.chat_service import ChatService
 
 
 router = APIRouter(prefix="/chats", tags=["chats"])
-
-
-def _get_chat(db: Session, user: User, chat_id: int) -> Chat:
-    chat = db.get(Chat, chat_id)
-    if not chat or user.id not in chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
-    return chat
 
 
 @router.post("", response_model=schemas.ChatOut)
@@ -26,29 +18,22 @@ def create_chat(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    chat = Chat(owner_user_id=user.id, patient_id=payload.patient_id, title=payload.title)
-    db.add(chat)
-    db.commit()
-    db.refresh(chat)
-    return chat
+    return ChatService.create_chat(db, user.id, payload)
 
 
 @router.get("", response_model=list[schemas.ChatOut])
 def list_chats(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    stmt = select(Chat)
-    return list(db.execute(stmt).scalars().all())
+    return ChatService.list_chats(db, user.id)
 
 
 @router.get("/{chat_id}", response_model=schemas.ChatOut)
 def get_chat(chat_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return _get_chat(db, user, chat_id)
+    return ChatService.get_chat(db, user.id, chat_id)
 
 
 @router.get("/{chat_id}/messages", response_model=list[schemas.MessageOut])
 def list_messages(chat_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    chat = _get_chat(db, user, chat_id)
-    stmt = select(Message).where(Message.chat_id == chat.id).order_by(Message.created_at.asc())
-    return list(db.execute(stmt).scalars().all())
+    return ChatService.list_messages(db, user.id, chat_id)
 
 
 @router.post("/{chat_id}/messages", response_model=schemas.MessageOut)
@@ -58,12 +43,7 @@ def add_message(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    chat = _get_chat(db, user, chat_id)
-    msg = Message(chat_id=chat.id, role=payload.role, content=payload.content)
-    db.add(msg)
-    db.commit()
-    db.refresh(msg)
-    return msg
+    return ChatService.add_message(db, user.id, chat_id, payload)
 
 
 @router.post("/{chat_id}/ai", response_model=schemas.AIChatResponse)
@@ -73,26 +53,4 @@ def chat_with_ai(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    chat = _get_chat(db, user, chat_id)
-
-    user_msg = Message(chat_id=chat.id, role="user", content=payload.message)
-    db.add(user_msg)
-    db.flush()
-
-    stmt = select(Message).where(Message.chat_id == chat.id).order_by(Message.created_at.asc())
-    prior = list(db.execute(stmt).scalars().all())
-
-    messages = []
-    if payload.system_prompt:
-        messages.append({"role": "system", "content": payload.system_prompt})
-    for m in prior:
-        messages.append({"role": m.role, "content": m.content})
-
-    service = AIModelService()
-    assistant_text = service.chat(messages=messages, model=payload.model)
-
-    assistant_msg = Message(chat_id=chat.id, role="assistant", content=assistant_text)
-    db.add(assistant_msg)
-    db.commit()
-
-    return schemas.AIChatResponse(assistant_message=assistant_text, model=(payload.model or "default"))
+    return ChatService.chat_with_ai(db, user.id, chat_id, payload)

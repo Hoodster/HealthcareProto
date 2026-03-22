@@ -7,13 +7,11 @@ from pydantic import BaseModel, Field
 
 
 class ChatCreate(BaseModel):
-    patient_id: int | None = None
     title: str | None = None
 
 
 class ChatOut(BaseModel):
     id: int
-    patient_id: int | None
     title: str | None
     created_at: dt.datetime
 

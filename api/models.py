@@ -124,8 +124,9 @@ EntryKindsEnhanced = Literal[
 EntryKinds = Literal['prescription', 
                'operation_protocol', 
                'observation', 
-               'diagnosis', 
-               'health_history']
+                'diagnosis', 
+               'health_history',
+               'visit']
 class PatientHistoryEntry(Base):
     """Patient medical history (§2 ust.3 pkt 1,2 - historia zdrowia i choroby)"""
     __tablename__ = "patient_history"

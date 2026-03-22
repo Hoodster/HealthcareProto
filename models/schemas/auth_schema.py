@@ -19,12 +19,12 @@ class LoginRequest(BaseModel):
 
 class AuthResponse(BaseModel):
     token: str
-    user_id: int
+    user_id: str
     email: EmailStr
 
 
 class ProfileOut(BaseModel):
-    user_id: int
+    user_id: str
     full_name: str | None
     role: str | None
     created_at: dt.datetime
