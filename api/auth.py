@@ -46,22 +46,22 @@ def _get_or_create_dev_user(db: Session, *, email: str, password: str, full_name
 
 
 def _dev_user_from_role(db: Session, role_key: str | None) -> User:
-    key = (role_key or os.getenv("V011_DEV_ROLE") or "clinician").strip().lower()
+    key = (role_key or os.getenv("DEV_ROLE") or "clinician").strip().lower()
 
     if key in {"admin", "administrator"}:
         return _get_or_create_dev_user(
             db,
-            email=os.getenv("V011_DEV_ADMIN_EMAIL") or "admin@local",
-            password=os.getenv("V011_DEV_ADMIN_PASSWORD") or "admin",
-            full_name=os.getenv("V011_DEV_ADMIN_NAME") or "Admin",
+            email=os.getenv("DEV_ADMIN_EMAIL", 'admin@local'),
+            password=os.getenv("DEV_ADMIN_PASSWORD", "admin"),
+            full_name=os.getenv("DEV_ADMIN_NAME", "Admin"),
             role="admin",
         )
 
     return _get_or_create_dev_user(
         db,
-        email=os.getenv("V011_DEV_CLINICIAN_EMAIL") or "clinician@local",
-        password=os.getenv("V011_DEV_CLINICIAN_PASSWORD") or "clinician",
-        full_name=os.getenv("V011_DEV_CLINICIAN_NAME") or "Clinician",
+        email=os.getenv("DEV_CLINICIAN_EMAIL", "clinician@local"),
+        password=os.getenv("DEV_CLINICIAN_PASSWORD", "clinician"),
+        full_name=os.getenv("DEV_CLINICIAN_NAME", "Clinician"),
         role="clinician",
     )
 
