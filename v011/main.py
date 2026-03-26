@@ -1,5 +1,4 @@
 import os
-from openai import OpenAI
 
 def load_dotenv(dotenv_path=".env"):
 	try:
@@ -19,7 +18,3 @@ def load_dotenv(dotenv_path=".env"):
 		pass
 
 load_dotenv()
-
-key = os.getenv("API_OPENAI")
-client = OpenAI(api_key=key)
-print(client.models.list())

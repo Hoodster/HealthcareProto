@@ -9,12 +9,15 @@ from api.routes.ai_routes import router as ai_router
 from api.routes.chat_routes import router as chat_router
 from api.routes.patient_routes import router as patient_router
 
+from init_mimic_db import connect_db
+
 
 API_PREFIX = "/hp_proto/api"
 
 
 def create_app() -> FastAPI:
     init_db()
+    connect_db()
     api_router = APIRouter(prefix=API_PREFIX)
 
     app = FastAPI(
