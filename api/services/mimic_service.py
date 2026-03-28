@@ -49,7 +49,7 @@ def get_all_patients(db: Session):
 def get_heart_patients(db: Session, subject_id: Optional[int] = None, with_icu_stay: bool = False):
     sql = __get_heart_patients_query__(subject_id, with_icu_stay)
     result = db.execute(sql)
-    patients = result.scalars().unique().all()
+    query_result = result.scalars().unique().all()
     
     # Convert to dictionaries with extended diagnosis information
     return [
@@ -94,5 +94,5 @@ def get_heart_patients(db: Session, subject_id: Optional[int] = None, with_icu_s
                 for icu in p.icustays
             ] if with_icu_stay and hasattr(p, 'icustays') else []
         }
-        for p in patients
+        for p in query_result
     ]

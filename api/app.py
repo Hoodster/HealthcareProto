@@ -9,6 +9,7 @@ from api.routes.ai_routes import router as ai_router
 from api.routes.chat_routes import router as chat_router
 from api.routes.patient_routes import router as patient_router
 from api.routes.mimic_routes import router as mimic_router
+from api.routes.evaluation_routes import router as evaluation_router
 
 from scripts.init_mimic_db import connect_db
 
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     api_router.include_router(chat_router)
     api_router.include_router(ai_router)
     api_router.include_router(mimic_router)
+    api_router.include_router(evaluation_router)
 
     @api_router.get("/health")
     def health():
