@@ -11,6 +11,10 @@ from psycopg2 import connect, sql
 from psycopg2.extensions import connection
 from pathlib import Path
 from tqdm import tqdm
+from utils.set_master_path import switch_to_app_context
+switch_to_app_context()
+
+
 
 from api.config import get_database_connection_schema
 
@@ -36,13 +40,21 @@ def create_schema(conn: connection):
     """Create MIMIC-III schema from SQL file."""
     print("\nCreating schema...")
     try:
-        with open(SCHEMA_FILE, 'r') as f:
-            schema_sql = f.read()
-        
         with conn.cursor() as cur:
+            # Create mimiciii schema first
+            cur.execute("CREATE SCHEMA IF NOT EXISTS mimiciii")
+            print("✓ Schema 'mimiciii' created")
+            
+            # Set search path to mimiciii schema
+            cur.execute("SET search_path TO mimiciii, public")
+            
+            # Read and execute schema SQL
+            with open(SCHEMA_FILE, 'r') as f:
+                schema_sql = f.read()
             cur.execute(schema_sql)
+        
         conn.commit()
-        print("✓ Schema created successfully")
+        print("✓ Tables created in mimiciii schema")
     except Exception as e:
         print(f"✗ Failed to create schema: {e}")
         conn.rollback()
@@ -50,7 +62,7 @@ def create_schema(conn: connection):
 
 
 def import_csv_to_table(conn: connection, table_name: str, csv_file: Path):
-    """Import CSV file into PostgreSQL table."""
+    """Import CSV file into PostgreSQL table in mimiciii schema."""
     if not csv_file.exists():
         print(f"  ⚠ File not found: {csv_file}")
         return
@@ -70,11 +82,15 @@ def import_csv_to_table(conn: connection, table_name: str, csv_file: Path):
             headers = next(reader)  # Skip header
             
             with conn.cursor() as cur:
-                # Prepare insert statement
+                # Set search path to mimiciii schema
+                cur.execute("SET search_path TO mimiciii, public")
+                
+                # Prepare insert statement - use lowercase table name and mimiciii schema
+                table_lower = table_name.lower()
                 columns = sql.SQL(', ').join(map(sql.Identifier, headers))
                 placeholders = sql.SQL(', ').join(sql.Placeholder() * len(headers))
-                insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
-                    sql.Identifier(table_name),
+                insert_query = sql.SQL("INSERT INTO mimiciii.{} ({}) VALUES ({})").format(
+                    sql.Identifier(table_lower),
                     columns,
                     placeholders
                 )
@@ -142,14 +158,14 @@ def import_all_data(conn: connection):
 
 
 def verify_import(conn: connection):
-    """Verify data import by counting rows."""
+    """Verify data import by counting rows in mimiciii schema."""
     print("\nVerifying data import...")
     
     with conn.cursor() as cur:
         cur.execute("""
             SELECT table_name 
             FROM information_schema.tables 
-            WHERE table_schema = 'public'
+            WHERE table_schema = 'mimiciii'
             ORDER BY table_name
         """)
         tables = [row[0] for row in cur.fetchall()]
@@ -159,7 +175,7 @@ def verify_import(conn: connection):
         
         total_rows = 0
         for table in tables:
-            cur.execute(f"SELECT COUNT(*) FROM {table}")
+            cur.execute(f"SELECT COUNT(*) FROM mimiciii.{table}")
             result = cur.fetchone()
             count = result[0] if result else 0
             total_rows += count

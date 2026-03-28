@@ -2,25 +2,25 @@ from __future__ import annotations
 
 import datetime as dt
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str = Field(min_length=6)
     full_name: str | None = None
     role: str | None = None
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
 class AuthResponse(BaseModel):
     token: str
     user_id: str
-    email: EmailStr
+    email: str
 
 
 class ProfileOut(BaseModel):

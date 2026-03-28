@@ -210,7 +210,7 @@ class MedDocument(Base):
 class MimicPatient(Base):
     """MIMIC-III Patients table (read-only)"""
     __tablename__ = "patients"
-    __table_args__ = {'schema': 'public'}
+    __table_args__ = {'schema': MIMIC_SCHEMA_NAME}
     
     subject_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     gender: Mapped[str | None] = mapped_column(String(1), nullable=True)
@@ -229,10 +229,10 @@ class MimicPatient(Base):
 class MimicAdmission(Base):
     """MIMIC-III Admissions table (read-only)"""
     __tablename__ = "admissions"
-    __table_args__ = {'schema': 'public'}
+    __table_args__ = {'schema': MIMIC_SCHEMA_NAME}
     
     hadm_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    subject_id: Mapped[int] = mapped_column(ForeignKey("public.patients.subject_id"), index=True, nullable=False)
+    subject_id: Mapped[int] = mapped_column(ForeignKey(f"{MIMIC_SCHEMA_NAME}.patients.subject_id"), index=True, nullable=False)
     admittime: Mapped[dt | None] = mapped_column(DateTime, nullable=True)
     dischtime: Mapped[dt | None] = mapped_column(DateTime, nullable=True)
     deathtime: Mapped[dt | None] = mapped_column(DateTime, nullable=True)
@@ -250,18 +250,18 @@ class MimicAdmission(Base):
     
     # Relationships
     patient: Mapped[MimicPatient] = relationship(back_populates="admissions")
-    icustays: Mapped[list["MimicICUStay"]] = relationship(back_populates="admission")
-    diagnoses: Mapped[list["MimicDiagnosisICD"]] = relationship(back_populates="admission")
+    icustays: Mapped[list[MimicICUStay]] = relationship(back_populates="admission")
+    diagnoses: Mapped[list[MimicDiagnosisICD]] = relationship(back_populates="admission")
 
 
 class MimicICUStay(Base):
     """MIMIC-III ICU Stays table (read-only)"""
     __tablename__ = "icustays"
-    __table_args__ = {'schema': 'public'}
+    __table_args__ = {'schema': MIMIC_SCHEMA_NAME}
     
     icustay_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    subject_id: Mapped[int] = mapped_column(ForeignKey("public.patients.subject_id"), index=True, nullable=False)
-    hadm_id: Mapped[int] = mapped_column(ForeignKey("public.admissions.hadm_id"), index=True, nullable=True)
+    subject_id: Mapped[int] = mapped_column(ForeignKey(f"{MIMIC_SCHEMA_NAME}.patients.subject_id"), index=True, nullable=False)
+    hadm_id: Mapped[int] = mapped_column(ForeignKey(f"{MIMIC_SCHEMA_NAME}.admissions.hadm_id"), index=True, nullable=True)
     intime: Mapped[dt | None] = mapped_column(DateTime, nullable=True)
     outtime: Mapped[dt | None] = mapped_column(DateTime, nullable=True)
     los: Mapped[float | None] = mapped_column(Integer, nullable=True)  # Length of stay
@@ -282,12 +282,12 @@ class MimicDiagnosisICD(Base):
         Index('ix_mimic_diag_subject', 'subject_id'),
         Index('ix_mimic_diag_hadm', 'hadm_id'),
         Index('ix_mimic_diag_icd9', 'icd9_code'),
-        {'schema': 'public'}
+        {'schema': MIMIC_SCHEMA_NAME}
     )
     
     row_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    subject_id: Mapped[int] = mapped_column(ForeignKey("public.patients.subject_id"), index=True, nullable=False)
-    hadm_id: Mapped[int] = mapped_column(ForeignKey("public.admissions.hadm_id"), index=True, nullable=False)
+    subject_id: Mapped[int] = mapped_column(ForeignKey(f"{MIMIC_SCHEMA_NAME}.patients.subject_id"), index=True, nullable=False)
+    hadm_id: Mapped[int] = mapped_column(ForeignKey(f"{MIMIC_SCHEMA_NAME}.admissions.hadm_id"), index=True, nullable=False)
     seq_num: Mapped[int | None] = mapped_column(Integer, nullable=True)
     icd9_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
     

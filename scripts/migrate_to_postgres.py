@@ -10,6 +10,12 @@ from sqlalchemy import create_engine, inspect, text, MetaData, Table, select
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 
+# Add parent directory to path to import set_master_path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from utils.set_master_path import switch_to_app_context
+switch_to_app_context()
+
 # Import models to ensure they're registered
 from api.models import (
     Base, User, StaffProfile, Patient, PatientFile, 
@@ -45,11 +51,13 @@ def create_postgres_schema(pg_engine):
     """Create all tables in PostgreSQL."""
     print("\n📋 Creating PostgreSQL schema...")
     
-    # Create 'app' schema first (to separate from MIMIC tables)
+    # Create schemas (to separate app data from MIMIC data)
     with pg_engine.connect() as conn:
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS app"))
+        conn.execute(text("CREATE SCHEMA IF NOT EXISTS mimiciii"))
         conn.commit()
         print("✓ Schema 'app' created")
+        print("✓ Schema 'mimiciii' created")
     
     Base.metadata.create_all(bind=pg_engine)
     print("✓ Tables created successfully")
