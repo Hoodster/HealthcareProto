@@ -1,9 +1,8 @@
 """API routes for expert system drug safety evaluation."""
 
-from typing import List
-from fastapi import APIRouter, HTTPException, Depends
+from typing import Annotated, List
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
-
 from expert_system.models.patient_context import PatientContext
 from expert_system.models.decision_context import DecisionContext
 from expert_system.engine.rule_engine import RuleEngine
@@ -93,6 +92,12 @@ async def get_rules_info(
     """
     return engine.get_rules_summary()
 
+@router.get("/drugservice", summary="Drug service test")
+async def get_drug_service_test():
+    from api.services.drug_service import DrugService
+    interactions = DrugService.check_interactions(["amiodarone", "metoprolol", "clarithromycin"])
+    return {"interactions": interactions}
+
 
 @router.post("/rules/{rule_name}/enable", summary="Enable a rule")
 async def enable_rule(
@@ -117,6 +122,17 @@ async def disable_rule(
         raise HTTPException(status_code=404, detail=f"Rule not found: {rule_name}")
     return {"message": f"Rule '{rule_name}' disabled", "success": True}
 
+@router.post("/drugs/search", summary="Search for drug RXCUI")
+async def search_drug_rxcui(
+    drug_name: str,
+    search: Annotated[int, Query(ge=0, le=9, description="0=exact, 1=normalized, 2=exact-or-normalized, 9=approximate")] = 2,
+) -> dict:
+    """Search for a drug's RxNorm RXCUI identifier."""
+    from api.services.drug_service import DrugService, RxNormSearchMode
+    rxcui = DrugService.get_rxcui(drug_name, search=search)  # type: ignore[arg-type]
+    if rxcui is None:
+        raise HTTPException(status_code=404, detail=f"RXCUI not found for drug: {drug_name}")
+    return {"drug_name": drug_name, "rxcui": rxcui}
 
 @router.get("/example", response_model=dict, summary="Get example patient contexts")
 async def get_examples() -> dict:

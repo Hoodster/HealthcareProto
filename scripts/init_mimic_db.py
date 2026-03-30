@@ -203,7 +203,7 @@ def main():
     print(f"✓ Data directory: {MIMIC_DATA_DIR}")
     
     # Connect and initialize
-    conn = connect_db()
+    conn = connect()
     
     try:
         create_schema(conn)

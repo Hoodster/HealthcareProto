@@ -9,6 +9,9 @@ from .chat_schema import (
     AIChatResponse,
     ChatCreate,
     ChatOut,
+    ClinicalChatRequest,
+    ClinicalChatResponse,
+    ClinicalAlert,
     MessageCreate,
     MessageOut,
 )
@@ -35,6 +38,9 @@ __all__ = [
     "MessageOut",
     "AIChatRequest",
     "AIChatResponse",
+    "ClinicalChatRequest",
+    "ClinicalChatResponse",
+    "ClinicalAlert",
     # patient
     "PatientCreate",
     "PatientOut",
