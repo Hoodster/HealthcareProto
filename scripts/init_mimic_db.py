@@ -21,7 +21,7 @@ from api.config import get_database_connection_schema
 load_dotenv()
 config_schema = get_database_connection_schema()
 
-MIMIC_DATA_DIR = Path(os.getenv('MIMIC_DATA_DIR', '.sources/mimic-iii-demo'))
+MIMIC_DATA_DIR = Path(os.getenv('MIMIC_DATA_DIR', '.sources/mimic'))
 SCHEMA_FILE = MIMIC_DATA_DIR / '.create_tables.sql'
 
 

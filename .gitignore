@@ -14,6 +14,10 @@ venv/
 *.sql.gz
 *.sql
 
+#csv mimic
+/.sources/mimic/*.csv
+/.sources/mimic/*.txt
+
 # PostgreSQL
 pgdata/
 

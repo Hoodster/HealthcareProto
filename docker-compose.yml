@@ -13,7 +13,7 @@ services:
       - "5432:5432"
     volumes:
       - mimic_postgres_data:/var/lib/postgresql/data
-      - ./.sources/mimic-iii-demo:/mimic_data:ro
+      - ./.sources/mimic:/mimic_data:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mimic_user -d mimic_demo"]
       interval: 10s

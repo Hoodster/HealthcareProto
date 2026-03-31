@@ -11,7 +11,7 @@ DB_USER="mimic_user"
 DB_PASSWORD="mimic_password"
 DB_HOST="localhost"
 DB_PORT="5432"
-MIMIC_DATA_DIR=".sources/mimic-iii-demo"
+MIMIC_DATA_DIR=".sources/mimic"
 
 echo "=========================================="
 echo "MIMIC-III PostgreSQL Database Setup"
