@@ -8,6 +8,7 @@ import models.schemas as schema
 from api.auth import get_current_user, get_db
 from api.models import User
 from api.services.patient_service import DocumentationService, PatientService
+from api.services.chat_service import ChatService
 
 
 router = APIRouter(prefix="/patients", tags=["patients"])
@@ -72,3 +73,26 @@ def list_history(
 @router.get("/{patient_id}/visits", response_model=list[schema.PatientHistoryOut])
 def list_visits(patient_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return PatientService.list_history(db, user.id, patient_id, kind="visit")
+
+
+@router.post("/{patient_id}/chat/ai", response_model=schema.ClinicalChatResponse)
+def patient_clinical_chat(
+    patient_id: str,
+    payload: schema.ClinicalChatRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Clinical AI chat enriched with expert system evaluation for the given patient."""
+    return ChatService.patient_clinical_chat(db, user.id, patient_id, payload)
+
+
+@router.get("/{patient_id}/context")
+def get_patient_context(
+    patient_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return the PatientContext as built from the patient's history records."""
+    PatientService.get_by_id(db, patient_id, user.id)  # authorization check
+    ctx = PatientService.build_patient_context(patient_id, db)
+    return ctx.model_dump()

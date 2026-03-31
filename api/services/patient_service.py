@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
+import re
+from datetime import datetime, date
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -9,6 +10,14 @@ from sqlalchemy.orm import Session
 import models.schemas as schemas
 from api.models import Patient, PatientFile, PatientHistoryEntry
 from api.services.ai_service import AIModelService
+
+_QTC_RE = re.compile(r'\bqtc\s*[=:]\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
+_EGFR_RE = re.compile(r'\begfr\s*[=:]\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
+_DOSE_RE = re.compile(r'\b\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|iu)\b', re.IGNORECASE)
+
+_PRESCRIPTION_KINDS = {'prescription', 'medication_change', 'anticoagulation'}
+_CONDITION_KINDS = {'diagnosis', 'symptom', 'episode_af', 'health_history'}
+_ECG_KINDS = {'diagnostic_ecg', 'diagnostic_holter'}
 
 
 class PatientService:
@@ -138,6 +147,87 @@ class PatientService:
             max_tokens=500,
         )
         return summary
+
+    @staticmethod
+    def build_patient_context(patient_id: str, db: Session):
+        """Build a PatientContext for the expert system from the patient's DB records."""
+        from expert_system.models.patient_context import PatientContext
+
+        patient = db.get(Patient, patient_id)
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+
+        # Age from dob
+        age: int | None = None
+        if patient.dob:
+            today = date.today()
+            age = today.year - patient.dob.year - (
+                (today.month, today.day) < (patient.dob.month, patient.dob.day)
+            )
+
+        # Normalise sex → M/F/Other
+        gender: str | None = None
+        if patient.sex:
+            s = patient.sex.strip().lower()
+            if s in ('m', 'male', 'mężczyzna', 'mezczyzna'):
+                gender = 'M'
+            elif s in ('f', 'female', 'k', 'kobieta'):
+                gender = 'F'
+            else:
+                gender = patient.sex
+
+        # Fetch history entries newest first
+        stmt = (
+            select(PatientHistoryEntry)
+            .where(PatientHistoryEntry.patient_id == patient_id)
+            .order_by(PatientHistoryEntry.occurred_at.desc(), PatientHistoryEntry.created_at.desc())
+        )
+        entries = list(db.execute(stmt).scalars().all())
+
+        qtc = 420.0
+        egfr = 90.0
+        medications: list[str] = []
+        conditions: list[str] = []
+
+        for entry in entries:
+            kind = entry.kind
+            note = (entry.note or "").strip()
+
+            if kind == 'lab_result':
+                m = _EGFR_RE.search(note)
+                if m and egfr == 90.0:
+                    egfr = float(m.group(1))
+                m2 = _QTC_RE.search(note)
+                if m2 and qtc == 420.0:
+                    qtc = float(m2.group(1))
+
+            elif kind in _ECG_KINDS:
+                m = _QTC_RE.search(note)
+                if m and qtc == 420.0:
+                    qtc = float(m.group(1))
+
+            elif kind in _PRESCRIPTION_KINDS:
+                # Strip dosage info and take the first token as the drug name
+                cleaned = _DOSE_RE.sub('', note).strip()
+                drug = cleaned.split()[0].lower() if cleaned else None
+                if drug and drug not in medications:
+                    medications.append(drug)
+
+            elif kind in _CONDITION_KINDS:
+                cond = note.lower()
+                if cond and cond not in conditions:
+                    conditions.append(cond)
+
+        return PatientContext(
+            patient_id=patient_id,
+            qtc=qtc,
+            egfr=egfr,
+            medications=medications,
+            conditions=conditions,
+            age=age,
+            gender=gender,
+            weight=None,
+        )
 
 
 class DocumentationService:

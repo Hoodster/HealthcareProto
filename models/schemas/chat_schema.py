@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -43,3 +43,24 @@ class AIChatRequest(BaseModel):
 class AIChatResponse(BaseModel):
     assistant_message: str
     model: str
+
+
+class ClinicalChatRequest(BaseModel):
+    message: str = Field(..., description="Clinical question about the patient")
+    model: Optional[str] = None
+
+
+class ClinicalAlert(BaseModel):
+    message: str
+    severity: str
+    category: str
+    rule_name: str
+
+
+class ClinicalChatResponse(BaseModel):
+    assistant_message: str
+    model: str
+    contraindicated: bool
+    risk_score: int
+    alerts: list[ClinicalAlert]
+    rag_used: bool = False

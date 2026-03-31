@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: mimic-postgres
+    environment:
+      POSTGRES_DB: mimic_demo
+      POSTGRES_USER: mimic_user
+      POSTGRES_PASSWORD: mimic_password
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - mimic_postgres_data:/var/lib/postgresql/data
+      - ./.sources/mimic-iii-demo:/mimic_data:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mimic_user -d mimic_demo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  mimic_postgres_data:
+    driver: local

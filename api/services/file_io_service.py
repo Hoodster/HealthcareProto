@@ -1,62 +1,65 @@
 from pathlib import Path
+from typing import Literal
 
 from openai import OpenAI
 import os
 from azure.storage.blob import BlobClient, BlobServiceClient
+from dotenv import load_dotenv
 
-__connection_string = os.getenv('STORAGE_CONNECTION_STRING') or ''
-__base_container_name = os.getenv('STORAGE_CONTAINER') or 'healthproto-container'
+load_dotenv()
+
+__connection_string__ = os.getenv('STORAGE_CONNECTION_STRING', '')
+__base_container_name__ = os.getenv('STORAGE_CONTAINER', '')
+__blob_service__ = BlobServiceClient.from_connection_string(conn_str=__connection_string__)
+
+type BlobDocumentType = Literal['patient_file', 'knowledge_base']
+
+try:
+    base_container = __blob_service__.create_container(__base_container_name__)
+except Exception as e:
+    print(f"Container creation failed: {e}")
+    base_container = __blob_service__.get_container_client(__base_container_name__)
 
 
-def get_blob_service():
+def __upload_to_blob_storage__(file_path: str | Path, blob_name: str, overwrite: bool = True):
+    if isinstance(file_path, str):
+        file_path = Path(file_path)
     
-    if not __connection_string:
-        raise ValueError("STORAGE_CONNECTION_STRING environment variable is not set.")
-    
-    return BlobServiceClient.from_connection_string(conn_str=__connection_string)
+    with file_path.open("rb") as upfile:
+        base_container.upload_blob(name=blob_name, data=upfile, overwrite=overwrite)
+        upfile.close()
 
-def upload_to_blob_storage(blob_storage: BlobServiceClient,
-                           file_path: str, blob_name: str):
-    blob_storage.get_blob_client(__connection_string, blob_name)
-    
-
-def upload_file_to_bstore(
-                          blob_service: BlobServiceClient,
-                          file_path: str, 
-                          blob_name: str,
-                          container_name: str,
+def upload(
+                          file_name: str,
+                          file_path: str,
+                          document_type: BlobDocumentType, 
                           overwrite: bool = True):
     upload_file = Path(file_path)
-    
     if not upload_file.is_file():
         raise ValueError("Couldn't retrieve file for upload")
     
-    blob_client =blob_service.get_blob_client(
-        container=container_name,
-        blob=blob_name or upload_file.name
+    if document_type == 'patient_file':
+        subcontainer_name = "docs/"
+    elif document_type == 'knowledge_base':
+        subcontainer_name = "kb/"
+    else:
+        raise ValueError("Invalid document type")    
+    
+    if document_type == 'patient_file' and "/" not in file_name:
+        raise ValueError("Patient related files must have {reference}/file.ext format")
+    
+    blob_path = f"{subcontainer_name}/{file_name}"
+    __upload_to_blob_storage__(
+        file_path=upload_file,
+        blob_name=blob_path,
+        overwrite=overwrite
     )
     
-    blob_client.upload_blob(upload_file.open("rb"), overwrite=overwrite)
-    
-    
-def create_container(blob_service: BlobServiceClient, container_name: str):
-    try:
-        blob_service.create_container(f"{__base_container_name}/{container_name}")
-    except Exception as e:
-        print(f"Container creation failed: {e}")
-    
 
-def upload_data_file(client: OpenAI, path: str) -> str:
-    """
-    Uploads a local file at path to OpenAI as a user data file using the
-    provided client. Returns the uploaded file's ID. Raises ValueError if
-    the file does not exist.
-    """
-    p = Path(path)
-    if not p.is_file():
-        raise ValueError("File does not exist")
-    
-    with p.open("rb") as f:
-        f_object = client.files.create(file=f, purpose="user_data")
-    return f_object.id
+def ai_document_upload(
+    client: OpenAI,
+    file_path: str,
+    document_type: BlobDocumentType
+):
+    pass
 

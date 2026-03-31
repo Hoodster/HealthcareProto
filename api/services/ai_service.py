@@ -60,18 +60,15 @@ class AIModelService:
         return (completion.choices[0].message.content or "").strip()
     
     def summarize(self, text: str, model: Optional[str] = None) -> str:
-        prompt = f"Summarize the following text:\n\n{text}"
         used_model = model or self._selected_model
-        
-        answer = self.client.responses.create(
+        return self.chat(
+            messages=[
+                {"role": "system", "content": "Summarize the following text concisely."},
+                {"role": "user", "content": text},
+            ],
             model=used_model,
-            input=prompt,
-            tools=[{
-                "type": "file_search",
-                "vector_store_ids": ["vsd_..."]
-            }]
+            max_tokens=300,
         )
-        return (answer.output_text or "").strip()
     
     def embed(self, text: str):
         response = self.client.embeddings.create(

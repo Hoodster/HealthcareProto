@@ -7,3 +7,15 @@ venv/
 .examples/
 .output/
 .idea/
+
+# Database files
+*.db
+*.sqlite
+*.sql.gz
+*.sql
+
+# PostgreSQL
+pgdata/
+
+# Docker volumes
+docker-volumes/
