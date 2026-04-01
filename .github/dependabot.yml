@@ -1,0 +1,36 @@
+version: 2
+updates:
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+    commit-message:
+      prefix: DEPENDENCY-UPDATE
+    labels: [dependencies, internal]
+  # Python pip
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: DEPENDENCY-UPDATE
+    labels: [dependencies, internal]
+
+  # Docker
+  # - package-ecosystem: docker
+  #   directories:
+  #     - /
+  #   schedule:
+  #     interval: weekly
+  #   commit-message:
+  #     prefix: DEPENDENCY-UPDATE
+  #   labels: [dependencies, internal]
+  # # Docker Compose
+  # - package-ecosystem: docker-compose
+  #   directory: /
+  #   schedule:
+  #     interval: weekly
+  #   commit-message:
+  #     prefix: DEPENDENCY-UPDATE
+  #   labels: [dependencies, internal]
