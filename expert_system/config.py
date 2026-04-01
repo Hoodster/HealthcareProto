@@ -22,25 +22,25 @@ RISK_WEIGHT_LOW = 5
 # Known drug lists (can be loaded from database in production)
 QT_PROLONGING_DRUGS = {
     # Antiarrhythmics
-    "amiodarone", "sotalol", "quinidine", "procainamide", "disopyramide", 
+    "amiodarone", "sotalol", "quinidine", "procainamide", "disopyramide",
     "dofetilide", "ibutilide", "dronedarone",
-    
+
     # Antibiotics
-    "azithromycin", "clarithromycin", "erythromycin", "levofloxacin", 
+    "azithromycin", "clarithromycin", "erythromycin", "levofloxacin",
     "moxifloxacin", "ciprofloxacin",
-    
+
     # Antipsychotics
     "haloperidol", "quetiapine", "ziprasidone", "risperidone", "olanzapine",
-    
+
     # Antidepressants
     "citalopram", "escitalopram", "amitriptyline", "nortriptyline",
-    
+
     # Antiemetics
     "ondansetron", "metoclopramide", "domperidone",
-    
+
     # Antifungals
     "fluconazole", "ketoconazole", "itraconazole",
-    
+
     # Others
     "methadone", "chloroquine", "hydroxychloroquine"
 }

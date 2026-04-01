@@ -1,7 +1,7 @@
 """Benchmark API routes — POST /benchmark/run."""
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -42,7 +42,7 @@ def run_benchmark(payload: BenchmarkRunRequest) -> BenchmarkReport:
 
 
 @router.get("/cases")
-def list_cases():
+def list_cases() -> list[dict[str, Any]]:
     """List available benchmark cases with metadata."""
     return [
         {

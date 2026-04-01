@@ -28,7 +28,7 @@ def __get_heart_patients_query__(
     subject_id: Optional[int] = None,
     with_icu_stay: Optional[bool] = False
                                  ):
-    
+
     # Base - select patients with eagerly loaded relationships
     statement = (
         select(models.MimicPatient)
@@ -39,7 +39,7 @@ def __get_heart_patients_query__(
             selectinload(models.MimicPatient.admissions),
         )
     )
-    
+
     if with_icu_stay:
         statement = statement.join(
             models.MimicICUStay,
@@ -48,7 +48,7 @@ def __get_heart_patients_query__(
                 models.MimicDiagnosisICD.hadm_id == models.MimicICUStay.hadm_id
             )
         ).options(selectinload(models.MimicPatient.icustays))
-    
+
     statement = statement.where(
         or_(
             models.MimicDiagnosisICD.icd9_code.like("426%"),
@@ -56,7 +56,7 @@ def __get_heart_patients_query__(
             models.MimicDiagnosisICD.icd9_code.in_(["42731", "42732", "4271", "2768"])
         )
     ).distinct().order_by(models.MimicPatient.subject_id)
-    
+
     return statement
 
 def get_all_patients(db: Session):
@@ -69,7 +69,7 @@ def get_heart_patients(db: Session, subject_id: Optional[int] = None, with_icu_s
     sql = __get_heart_patients_query__(subject_id, with_icu_stay)
     result = db.execute(sql)
     query_result = result.scalars().unique().all()
-    
+
     # Convert to dictionaries with extended diagnosis information
     return [
         {

@@ -29,19 +29,19 @@ async def evaluate_patient(
 ) -> DecisionContext:
     """
     Evaluate drug safety for a patient based on clinical context.
-    
+
     This endpoint applies a rule-based expert system to evaluate whether
     antiarrhythmic drugs are safe and appropriate for the given patient.
-    
+
     **Input:** Patient clinical context (QTc, eGFR, medications, conditions)
-    
+
     **Output:** Decision context with:
     - Contraindication status
     - Clinical alerts (critical, high, moderate, low)
     - Dose adjustment recommendations
     - Detailed explanations for all decisions
     - Overall risk score (0-100)
-    
+
     **Example scenarios:**
     - QTc > 500ms → Contraindicated due to torsade de pointes risk
     - eGFR < 30 → Severe dose reduction required
@@ -64,7 +64,7 @@ async def evaluate_patients_batch(
 ) -> List[DecisionContext]:
     """
     Evaluate drug safety for multiple patients in a single request.
-    
+
     Useful for screening patient cohorts or analyzing historical data.
     """
     try:
@@ -83,7 +83,7 @@ async def get_rules_info(
 ) -> dict:
     """
     Get information about currently loaded rules.
-    
+
     Returns summary of all rules including:
     - Total count
     - Enabled/disabled status
@@ -138,7 +138,7 @@ async def search_drug_rxcui(
 async def get_examples() -> dict:
     """
     Get example patient contexts for testing.
-    
+
     Returns various clinical scenarios with expected outcomes.
     """
     return {

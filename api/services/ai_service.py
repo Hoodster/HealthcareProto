@@ -23,7 +23,7 @@ class AIModelService:
         self.client = OpenAI(api_key=api_key)
         self._selected_model = model or get_openai_model()
         self._system_prompt = system_prompt or SYSTEM_DEFAULT_PROMPT
-        
+
     def __chunk_text(self, text: str, max_tokens = MAX_TOKENS):
         sentences = text.split('. ')
         chunks = []
@@ -34,7 +34,7 @@ class AIModelService:
             else:
                 chunks.append(sentence)
         return chunks
-            
+
 
     def list_models(self) -> Any:
         return self.client.models.list()
@@ -48,17 +48,17 @@ class AIModelService:
         max_tokens: int = 512,
     ) -> str:
         used_model = model or self._selected_model
-        
+
         kwargs = {
             "model": used_model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
-        
+
         completion = self.client.chat.completions.create(**kwargs)
         return (completion.choices[0].message.content or "").strip()
-    
+
     def summarize(self, text: str, model: Optional[str] = None) -> str:
         used_model = model or self._selected_model
         return self.chat(
@@ -69,11 +69,10 @@ class AIModelService:
             model=used_model,
             max_tokens=300,
         )
-    
+
     def embed(self, text: str):
         response = self.client.embeddings.create(
             model="text-embedding-3-small",
             input=text
         )
         return response.data[0].embedding if response.data else None
-    

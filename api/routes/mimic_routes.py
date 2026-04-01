@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from api.benchmarks.benchmark_runner import Mode
 from api.services.mimic_service import get_heart_patients, get_all_patients, build_mimic_patient_context
 import models.schemas as schemas
 from api.services.dummy_service import DummyService
@@ -100,8 +101,6 @@ def run_mimic_benchmark(
     if not cases:
         return {"error": "No MIMIC patients with prescription data found"}
 
-    valid_modes = ["expert_only", "llm_only", "full_pipeline"]
-    selected_modes = [m for m in modes if m in valid_modes] or ["expert_only"]
     runner = BenchmarkRunner()
-    report = runner.compare(cases, modes=selected_modes)
+    report = runner.compare(cases, modes=["expert_only", "llm_only", "full_pipeline"])
     return report

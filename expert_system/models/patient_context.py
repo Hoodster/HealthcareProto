@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 class PatientContext(BaseModel):
     """
     Patient clinical context used for drug safety evaluation.
-    
+
     Attributes:
         patient_id: Unique identifier for the patient
         qtc: QTc interval in milliseconds (normal: <450ms men, <460ms women)
@@ -18,7 +18,7 @@ class PatientContext(BaseModel):
         gender: Patient gender ('M', 'F', or 'Other')
         weight: Patient weight in kg (optional)
     """
-    
+
     patient_id: Optional[str] = Field(None, description="Patient identifier")
     qtc: float = Field(..., ge=0, le=800, description="QTc interval in milliseconds")
     egfr: float = Field(..., ge=0, le=200, description="eGFR in mL/min/1.73m²")
@@ -27,7 +27,7 @@ class PatientContext(BaseModel):
     age: Optional[int] = Field(None, ge=0, le=150, description="Patient age in years")
     gender: Optional[str] = Field(None, description="Patient gender")
     weight: Optional[float] = Field(None, ge=0, le=500, description="Patient weight in kg")
-    
+
     class Config:
         json_schema_extra = {
             "example": {

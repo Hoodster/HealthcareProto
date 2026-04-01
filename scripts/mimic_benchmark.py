@@ -100,8 +100,8 @@ def main() -> None:
 
     db_url = get_database_connection_url()
     engine = create_engine(db_url)
-    Session = sessionmaker(bind=engine)
-    db = Session()
+    db = sessionmaker(bind=engine)()
+
 
     try:
         print(f"Building benchmark cases from MIMIC-III (target: {args.n} patients)…")
@@ -119,7 +119,7 @@ def main() -> None:
 
         if args.output:
             out_path = Path(args.output)
-            out_path.write_text(report.model_dump_json(indent=2))
+            out_path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
             print(f"Report saved to {out_path}")
     finally:
         db.close()

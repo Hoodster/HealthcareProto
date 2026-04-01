@@ -31,7 +31,7 @@ class StaffProfile(Base):
     full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
-    
+
 class Patient(Base):
     """Patient profile (§2 ust.1 - dokumentacja indywidualna)"""
     __tablename__ = "app_patients"
@@ -78,10 +78,10 @@ EntryKindsEnhanced = Literal[
     'symptom',                      # Objaw
     'episode_af',                   # Epizod migotania przedsionków
     'vital_signs',                  # Parametry życiowe (HR, BP, temp)
-    
+
     # Risk Assessment
     'risk_score',                   # Skale ryzyka (CHA₂DS₂-VASc, HAS-BLED)
-    
+
     # Diagnostics (§2 ust.3 pkt 20 - wyniki badań)
     'diagnostic_ecg',               # EKG
     'diagnostic_holter',            # Holter EKG
@@ -89,46 +89,46 @@ EntryKindsEnhanced = Literal[
     'diagnostic_imaging',           # Inne obrazowanie (CT, MRI, RTG)
     'lab_result',                   # Wyniki laboratoryjne
     'lab_inr',                      # INR (częste dla warfaryny)
-    
+
     # Treatments & Medications
     'prescription',                 # Recepta/zlecenie leku
     'medication_change',            # Zmiana leczenia
     'anticoagulation',              # Leczenie przeciwzakrzepowe
-    
+
     # Procedures (§2 ust.3 pkt 17,21 - procedury)
     'procedure_cardioversion',      # Kardiowersja
     'procedure_ablation',           # Ablacja
     'operation_protocol',           # Protokół operacyjny
-    
+
     # Observations & Monitoring
     'observation',                  # Obserwacja pacjenta
     'followup',                     # Wizyta kontrolna
-    
+
     # External Documentation (§2 ust.4 - dokumentacja zewnętrzna)
     'referral',                     # Skierowanie
     'discharge_summary',            # Karta informacyjna z leczenia
-    
+
     # Adverse Events
     'adverse_event',                # Zdarzenie niepożądane
     'complication',                 # Powikłanie
-    
+
     # Patient Education & Lifestyle
     'patient_education',            # Edukacja pacjenta
     'lifestyle',                    # Czynniki ryzyka/styl życia
-    
+
     # Administrative (§2 ust.5 - wymogi administracyjne)
     'consent',                      # Zgoda
     'external_doc_issued',          # Wpis o wydaniu dok. zewnętrznej
-    
+
     # General
     'health_history',               # Historia zdrowia
     'note',                         # Notatka ogólna
 ]
 
-EntryKinds = Literal['prescription', 
-               'operation_protocol', 
-               'observation', 
-                'diagnosis', 
+EntryKinds = Literal['prescription',
+               'operation_protocol',
+               'observation',
+                'diagnosis',
                'health_history',
                'visit']
 class PatientHistoryEntry(Base):
@@ -172,7 +172,7 @@ class Message(Base):
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
     sender_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     chat: Mapped[Chat] = relationship(back_populates="messages")
-    
+
 class MedDocument(Base):
     """Secure medical documents (§1 ust.1, §1 ust.6 - dokumentacja elektroniczna)"""
     __tablename__ = "med_documents"
@@ -185,14 +185,14 @@ class MedDocument(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), index=True, nullable=False)
     patient_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.app_patients.id"), index=True, nullable=False)
-    
+
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     document_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    
+
     # Store encrypted content or blob reference
     content_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     content_blob_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    
+
     # Audit trail (§1 ust.6 pkt 3,4 - identyfikacja i timestamp)
     uploaded_by: Mapped[str] = mapped_column(String(128), nullable=False)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
@@ -211,7 +211,7 @@ class MimicPatient(Base):
     """MIMIC-III Patients table (read-only)"""
     __tablename__ = "patients"
     __table_args__ = {'schema': MIMIC_SCHEMA_NAME}
-    
+
     subject_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     gender: Mapped[str | None] = mapped_column(String(1), nullable=True)
     dob: Mapped[dt | None] = mapped_column(DateTime, nullable=True)
@@ -219,7 +219,7 @@ class MimicPatient(Base):
     dod_hosp: Mapped[dt | None] = mapped_column(DateTime, nullable=True)
     dod_ssn: Mapped[dt | None] = mapped_column(DateTime, nullable=True)
     expire_flag: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    
+
     # Relationships
     admissions: Mapped[list["MimicAdmission"]] = relationship(back_populates="patient")
     icustays: Mapped[list["MimicICUStay"]] = relationship(back_populates="patient")
@@ -230,7 +230,7 @@ class MimicAdmission(Base):
     """MIMIC-III Admissions table (read-only)"""
     __tablename__ = "admissions"
     __table_args__ = {'schema': MIMIC_SCHEMA_NAME}
-    
+
     hadm_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     subject_id: Mapped[int] = mapped_column(ForeignKey(f"{MIMIC_SCHEMA_NAME}.patients.subject_id"), index=True, nullable=False)
     admittime: Mapped[dt | None] = mapped_column(DateTime, nullable=True)
@@ -247,7 +247,7 @@ class MimicAdmission(Base):
     diagnosis: Mapped[str | None] = mapped_column(String(255), nullable=True)
     hospital_expire_flag: Mapped[int | None] = mapped_column(Integer, nullable=True)
     has_chartevents_data: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    
+
     # Relationships
     patient: Mapped[MimicPatient] = relationship(back_populates="admissions")
     icustays: Mapped[list[MimicICUStay]] = relationship(back_populates="admission")
@@ -258,7 +258,7 @@ class MimicICUStay(Base):
     """MIMIC-III ICU Stays table (read-only)"""
     __tablename__ = "icustays"
     __table_args__ = {'schema': MIMIC_SCHEMA_NAME}
-    
+
     icustay_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     subject_id: Mapped[int] = mapped_column(ForeignKey(f"{MIMIC_SCHEMA_NAME}.patients.subject_id"), index=True, nullable=False)
     hadm_id: Mapped[int] = mapped_column(ForeignKey(f"{MIMIC_SCHEMA_NAME}.admissions.hadm_id"), index=True, nullable=True)
@@ -269,7 +269,7 @@ class MimicICUStay(Base):
     last_careunit: Mapped[str | None] = mapped_column(String(20), nullable=True)
     first_wardid: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_wardid: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    
+
     # Relationships
     patient: Mapped[MimicPatient] = relationship(back_populates="icustays")
     admission: Mapped[MimicAdmission] = relationship(back_populates="icustays")
@@ -284,13 +284,13 @@ class MimicDiagnosisICD(Base):
         Index('ix_mimic_diag_icd9', 'icd9_code'),
         {'schema': MIMIC_SCHEMA_NAME}
     )
-    
+
     row_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     subject_id: Mapped[int] = mapped_column(ForeignKey(f"{MIMIC_SCHEMA_NAME}.patients.subject_id"), index=True, nullable=False)
     hadm_id: Mapped[int] = mapped_column(ForeignKey(f"{MIMIC_SCHEMA_NAME}.admissions.hadm_id"), index=True, nullable=False)
     seq_num: Mapped[int | None] = mapped_column(Integer, nullable=True)
     icd9_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    
+
     # Relationships
     patient: Mapped[MimicPatient] = relationship(back_populates="diagnoses")
     admission: Mapped[MimicAdmission] = relationship(back_populates="diagnoses")
@@ -305,7 +305,7 @@ class MimicICDDiagnosisDefinition(Base):
     """MIMIC-III ICD-9 Diagnosis Definitions (read-only)"""
     __tablename__ = "d_icd_diagnoses"
     __table_args__ = {'schema': MIMIC_SCHEMA_NAME}
-    
+
     row_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     icd9_code: Mapped[str] = mapped_column(String(10), index=True, nullable=False)
     short_title: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -320,7 +320,7 @@ class MimicPrescription(Base):
         Index('ix_mimic_rx_hadm', 'hadm_id'),
         {'schema': MIMIC_SCHEMA_NAME}
     )
-    
+
     row_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     subject_id: Mapped[int] = mapped_column(ForeignKey(f"{MIMIC_SCHEMA_NAME}.patients.subject_id"), index=True, nullable=False)
     hadm_id: Mapped[int] = mapped_column(ForeignKey(f"{MIMIC_SCHEMA_NAME}.admissions.hadm_id"), index=True, nullable=False)
@@ -348,7 +348,7 @@ class MimicLabEvent(Base):
         Index('ix_mimic_lab_itemid', 'itemid'),
         {'schema': MIMIC_SCHEMA_NAME}
     )
-    
+
     row_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     subject_id: Mapped[int] = mapped_column(ForeignKey(f"{MIMIC_SCHEMA_NAME}.patients.subject_id"), index=True, nullable=False)
     hadm_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -358,7 +358,7 @@ class MimicLabEvent(Base):
     valuenum: Mapped[float | None] = mapped_column(Float, nullable=True)
     valueuom: Mapped[str | None] = mapped_column(String(20), nullable=True)
     flag: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    
+
     # Relationship
     lab_item: Mapped["MimicLabItem"] = relationship(back_populates="events")
 
@@ -367,13 +367,13 @@ class MimicLabItem(Base):
     """MIMIC-III Lab Item Definitions (read-only)"""
     __tablename__ = "d_labitems"
     __table_args__ = {'schema': MIMIC_SCHEMA_NAME}
-    
+
     row_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     itemid: Mapped[int] = mapped_column(Integer, index=True, nullable=False, unique=True)
     label: Mapped[str | None] = mapped_column(String(100), nullable=True)
     fluid: Mapped[str | None] = mapped_column(String(100), nullable=True)
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     loinc_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    
+
     # Relationship
     events: Mapped[list[MimicLabEvent]] = relationship(back_populates="lab_item")

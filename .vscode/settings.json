@@ -1,0 +1,7 @@
+{
+    "appService.enablePythonRemoteDebugging": true,
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.typeCheckingMode": "standard",
+    "python.analysis.findRefsInBackgroundThread": true,
+    "python.analysis.referencesCodeLens": true
+}

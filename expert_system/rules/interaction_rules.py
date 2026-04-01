@@ -9,22 +9,22 @@ from expert_system.models.decision_context import DecisionContext, AlertSeverity
 QT_PROLONGING_DRUGS = {
     # Antiarrhythmics (Class IA and III)
     "amiodarone", "sotalol", "quinidine", "procainamide", "disopyramide", "dofetilide", "ibutilide",
-    
+
     # Antibiotics
     "azithromycin", "clarithromycin", "erythromycin", "levofloxacin", "moxifloxacin", "ciprofloxacin",
-    
+
     # Antipsychotics
     "haloperidol", "quetiapine", "ziprasidone", "risperidone", "olanzapine",
-    
+
     # Antidepressants
     "citalopram", "escitalopram", "amitriptyline",
-    
+
     # Antiemetics
     "ondansetron", "metoclopramide",
-    
+
     # Antifungals
     "fluconazole", "ketoconazole",
-    
+
     # Others
     "methadone", "domperidone"
 }
@@ -48,26 +48,26 @@ BETA_BLOCKERS = {
 class QTProlongingDrugInteractionRule(BaseRule):
     """
     Drug interaction rule for QT-prolonging medications.
-    
+
     IF patient takes drugs that prolong QT THEN:
     - Add critical alert
     - List interacting drugs
     - Warn of additive risk
     """
-    
+
     def __init__(self):
         super().__init__()
         self.category = "interaction"
-    
+
     def condition(self, patient: PatientContext) -> bool:
         """Check if patient takes any QT-prolonging drugs."""
         patient_drugs = {drug.lower().strip() for drug in patient.medications}
         return bool(patient_drugs & QT_PROLONGING_DRUGS)
-    
+
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         patient_drugs = {drug.lower().strip() for drug in patient.medications}
         interacting_drugs = list(patient_drugs & QT_PROLONGING_DRUGS)
-        
+
         decision.add_alert(
             message=f"Drug interaction: Patient taking QT-prolonging medications: {', '.join(interacting_drugs)}",
             severity=AlertSeverity.CRITICAL,
@@ -80,11 +80,11 @@ class QTProlongingDrugInteractionRule(BaseRule):
             rule_name=self.name,
             category=self.category
         )
-    
+
     def explanation(self, patient: PatientContext) -> str:
         patient_drugs = {drug.lower().strip() for drug in patient.medications}
         interacting_drugs = list(patient_drugs & QT_PROLONGING_DRUGS)
-        
+
         return (
             f"Patient is currently taking QT-prolonging medications: {', '.join(interacting_drugs)}. "
             f"Adding another antiarrhythmic drug creates additive risk of QT prolongation "
@@ -96,24 +96,24 @@ class QTProlongingDrugInteractionRule(BaseRule):
 class CYPInhibitorInteractionRule(BaseRule):
     """
     Drug interaction rule for CYP enzyme inhibitors.
-    
+
     IF patient takes CYP inhibitors THEN:
     - Risk of increased antiarrhythmic levels
     - Recommend dose reduction
     """
-    
+
     def __init__(self):
         super().__init__()
         self.category = "interaction"
-    
+
     def condition(self, patient: PatientContext) -> bool:
         patient_drugs = {drug.lower().strip() for drug in patient.medications}
         return bool(patient_drugs & CYP_INHIBITORS)
-    
+
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         patient_drugs = {drug.lower().strip() for drug in patient.medications}
         inhibitors = list(patient_drugs & CYP_INHIBITORS)
-        
+
         decision.add_alert(
             message=f"Drug interaction: CYP enzyme inhibitors detected: {', '.join(inhibitors)}",
             severity=AlertSeverity.HIGH,
@@ -126,18 +126,18 @@ class CYPInhibitorInteractionRule(BaseRule):
             rule_name=self.name,
             category=self.category
         )
-        
+
         if not decision.dose_adjustment:  # Don't override existing adjustment
             decision.set_dose_adjustment(
                 adjusted_dose="Reduce to 50% of standard dose initially",
                 reason=f"CYP inhibitor interaction: {', '.join(inhibitors)}",
                 original_dose="Standard dose"
             )
-    
+
     def explanation(self, patient: PatientContext) -> str:
         patient_drugs = {drug.lower().strip() for drug in patient.medications}
         inhibitors = list(patient_drugs & CYP_INHIBITORS)
-        
+
         return (
             f"Patient is taking CYP enzyme inhibitors: {', '.join(inhibitors)}. "
             f"These drugs can reduce metabolism of many antiarrhythmics, "
@@ -149,24 +149,24 @@ class CYPInhibitorInteractionRule(BaseRule):
 class BetaBlockerInteractionRule(BaseRule):
     """
     Drug interaction rule for beta-blockers.
-    
+
     IF patient takes beta-blockers THEN:
     - Risk of bradycardia with some antiarrhythmics
     - Recommend heart rate monitoring
     """
-    
+
     def __init__(self):
         super().__init__()
         self.category = "interaction"
-    
+
     def condition(self, patient: PatientContext) -> bool:
         patient_drugs = {drug.lower().strip() for drug in patient.medications}
         return bool(patient_drugs & BETA_BLOCKERS)
-    
+
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         patient_drugs = {drug.lower().strip() for drug in patient.medications}
         beta_blockers = list(patient_drugs & BETA_BLOCKERS)
-        
+
         decision.add_alert(
             message=f"Beta-blocker interaction: {', '.join(beta_blockers)}",
             severity=AlertSeverity.MODERATE,
@@ -179,11 +179,11 @@ class BetaBlockerInteractionRule(BaseRule):
             rule_name=self.name,
             category=self.category
         )
-    
+
     def explanation(self, patient: PatientContext) -> str:
         patient_drugs = {drug.lower().strip() for drug in patient.medications}
         beta_blockers = list(patient_drugs & BETA_BLOCKERS)
-        
+
         return (
             f"Patient is taking beta-blocker(s): {', '.join(beta_blockers)}. "
             f"Combined with certain antiarrhythmics (e.g., amiodarone, sotalol), "

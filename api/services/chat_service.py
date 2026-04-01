@@ -118,16 +118,16 @@ class ChatService:
             pass
 
         # 3b. Try RAG retrieval (optional – gracefully skip if index not seeded)
-        rag_chunks: list[str] = []
-        rag_used = False
-        try:
-            from v011.retrieved_augumentation.rag_system import MedicalRAGSystem
-            rag = MedicalRAGSystem()
-            results = rag.retrieve(payload.message, top_k=3)
-            rag_chunks = [r.get("text", "") for r in results if r.get("text")]
-            rag_used = bool(rag_chunks)
-        except Exception:
-            pass
+        # rag_chunks: list[str] = []
+        # rag_used = False
+        # try:
+        #     from v011.retrieved_augumentation.rag_system import MedicalRAGSystem
+        #     rag = MedicalRAGSystem()
+        #     results = rag.retrieve(payload.message, top_k=3)
+        #     rag_chunks = [r.get("text", "") for r in results if r.get("text")]
+        #     rag_used = bool(rag_chunks)
+        # except Exception:
+        #     pass
 
         # 4. Build system prompt enriched with clinical context
         alert_lines = "\n".join(
@@ -139,10 +139,10 @@ class ChatService:
         )
         med_line = ", ".join(patient_context.medications) or "none recorded"
         condition_line = ", ".join(patient_context.conditions) or "none recorded"
-        rag_section = (
-            "\n\nRelevant literature:\n" + "\n---\n".join(rag_chunks)
-            if rag_chunks else ""
-        )
+            # rag_section = (
+            #     "\n\nRelevant literature:\n" + "\n---\n".join(rag_chunks)
+            #     if rag_chunks else ""
+            # )
 
         system_prompt = (
             "You are a clinical decision support assistant. "
@@ -158,7 +158,7 @@ class ChatService:
             f"  Risk score: {decision.risk_score}/100\n"
             f"  Alerts:\n{alert_lines if alert_lines else '  None'}"
             f"{rxnorm_section}"
-            f"{rag_section}"
+            # f"{rag_section}"
         )
 
         # 5. Call LLM
@@ -184,5 +184,5 @@ class ChatService:
             contraindicated=decision.contraindicated,
             risk_score=decision.risk_score,
             alerts=alerts_out,
-            rag_used=rag_used,
+            rag_used=False,
         )

@@ -18,7 +18,7 @@ switch_to_app_context()
 
 # Import models to ensure they're registered
 from api.models import (
-    Base, User, StaffProfile, Patient, PatientFile, 
+    Base, User, StaffProfile, Patient, PatientFile,
     PatientHistoryEntry, Chat, Message, MedDocument
 )
 from api.config import get_database_connection_url
@@ -50,7 +50,7 @@ def confirm_migration():
 def create_postgres_schema(pg_engine):
     """Create all tables in PostgreSQL."""
     print("\n📋 Creating PostgreSQL schema...")
-    
+
     # Create schemas (to separate app data from MIMIC data)
     with pg_engine.connect() as conn:
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS app"))
@@ -58,7 +58,7 @@ def create_postgres_schema(pg_engine):
         conn.commit()
         print("✓ Schema 'app' created")
         print("✓ Schema 'mimiciii' created")
-    
+
     Base.metadata.create_all(bind=pg_engine)
     print("✓ Tables created successfully")
 
@@ -67,35 +67,35 @@ def migrate_table(sqlite_session, pg_session, model_class, sqlite_table_name=Non
     pg_table_name = model_class.__tablename__
     # Use the provided SQLite table name, or the model's tablename if not provided
     source_table = sqlite_table_name or pg_table_name
-    
+
     print(f"\n📦 Migrating {source_table} → app.{pg_table_name}...", end=" ")
-    
+
     try:
         # For SQLite, we need to use core Table objects without schema
         # Get the table metadata but without schema
         sqlite_metadata = MetaData()
         sqlite_table = Table(source_table, sqlite_metadata, autoload_with=sqlite_session.bind)
-        
+
         # Get all records from SQLite using raw table
         result = sqlite_session.execute(select(sqlite_table))
         rows = result.fetchall()
         count = len(rows)
-        
+
         if count == 0:
             print("(empty)")
             return 0
-        
+
         # Convert rows to model instances and add to PostgreSQL
         for row in rows:
             # Create model instance from row data
             record_dict = dict(row._mapping)
             instance = model_class(**record_dict)
             pg_session.merge(instance)
-        
+
         pg_session.commit()
         print(f"✓ {count} records migrated")
         return count
-        
+
     except Exception as e:
         pg_session.rollback()
         print(f"✗ Error: {e}")
@@ -106,7 +106,7 @@ def migrate_table(sqlite_session, pg_session, model_class, sqlite_table_name=Non
 def verify_migration(sqlite_engine, pg_engine):
     """Verify row counts match."""
     print("\n🔍 Verifying migration...")
-    
+
     # Check if app schema exists
     with pg_engine.connect() as conn:
         result = conn.execute(text(
@@ -116,16 +116,16 @@ def verify_migration(sqlite_engine, pg_engine):
             print("   ✗ 'app' schema not found in PostgreSQL")
             return False
         print("   ✓ Schema 'app' exists")
-    
+
     sqlite_inspector = inspect(sqlite_engine)
     pg_inspector = inspect(pg_engine)
-    
+
     sqlite_tables = set(sqlite_inspector.get_table_names())
     pg_tables = set(pg_inspector.get_table_names(schema='app'))
-    
+
     print(f"   SQLite tables: {len(sqlite_tables)}")
     print(f"   PostgreSQL app tables: {len(pg_tables)}")
-    
+
     # Define table mappings (SQLite table name -> PostgreSQL table name in app schema)
     table_mapping = {
         'users': 'users',
@@ -137,9 +137,9 @@ def verify_migration(sqlite_engine, pg_engine):
         'messages': 'messages',
         'med_documents': 'med_documents'
     }
-    
+
     all_match = True
-    
+
     with sqlite_engine.connect() as sqlite_conn, pg_engine.connect() as pg_conn:
         for sqlite_table, pg_table in table_mapping.items():
             try:
@@ -151,7 +151,7 @@ def verify_migration(sqlite_engine, pg_engine):
                     sqlite_count = sqlite_result.scalar()
                 else:
                     sqlite_count = 0
-                
+
                 # Query PostgreSQL with schema prefix
                 if pg_table in pg_tables:
                     pg_result = pg_conn.execute(
@@ -160,32 +160,32 @@ def verify_migration(sqlite_engine, pg_engine):
                     pg_count = pg_result.scalar()
                 else:
                     pg_count = 0
-                
+
                 status = "✓" if sqlite_count <= pg_count else "✗"
                 print(f"   {status} {sqlite_table} → app.{pg_table}: SQLite={sqlite_count}, PostgreSQL={pg_count}")
-                
+
                 if sqlite_count > pg_count:
                     all_match = False
-                    
+
             except Exception as e:
                 print(f"   ✗ {sqlite_table}: Error - {e}")
                 all_match = False
-        
+
         return all_match
 
 def main():
     """Main migration process."""
     confirm_migration()
-    
+
     # Check if SQLite database exists
     sqlite_path = Path(".output/application.db")
     if not sqlite_path.exists():
         print(f"\n✗ SQLite database not found: {sqlite_path}")
         print("   Nothing to migrate.")
         sys.exit(0)
-    
+
     print("\n🔌 Connecting to databases...")
-    
+
     # Create engines
     try:
         sqlite_engine = create_engine(SQLITE_URL, echo=False)
@@ -194,20 +194,20 @@ def main():
     except Exception as e:
         print(f"✗ Connection failed: {e}")
         sys.exit(1)
-    
+
     # Create PostgreSQL schema
     create_postgres_schema(pg_engine)
-    
+
     # Create sessions
     SessionSQLite = sessionmaker(bind=sqlite_engine)
     SessionPG = sessionmaker(bind=pg_engine)
-    
+
     print("\n" + "="*70)
     print("MIGRATING DATA")
     print("="*70)
-    
+
     total_migrated = 0
-    
+
     # Migrate tables in dependency order
     migration_order = [
         (User, 'users'),           # No dependencies
@@ -219,23 +219,23 @@ def main():
         (Chat, 'chats'),           # Depends on User
         (Message, 'messages'),        # Depends on Chat
     ]
-    
+
     with SessionSQLite() as sqlite_session, SessionPG() as pg_session:
         for model_class, sqlite_table_name in migration_order:
             count = migrate_table(sqlite_session, pg_session, model_class, sqlite_table_name)
             total_migrated += count
-    
+
     print("\n" + "="*70)
     print(f"✓ Migration completed: {total_migrated} total records migrated")
     print("="*70)
-    
+
     # Verify migration
     if verify_migration(sqlite_engine, pg_engine):
         print("\n✓ Verification successful! All data migrated correctly.")
     else:
         print("\n⚠️  Verification warning: Some row counts don't match.")
         print("    This might be normal if PostgreSQL already had data.")
-    
+
     print("\n📝 Next steps:")
     print("   1. Test your application with PostgreSQL")
     print("   2. If everything works, you can backup/remove the SQLite database:")

@@ -44,15 +44,15 @@ def create_schema(conn: connection):
             # Create mimiciii schema first
             cur.execute("CREATE SCHEMA IF NOT EXISTS mimiciii")
             print("✓ Schema 'mimiciii' created")
-            
+
             # Set search path to mimiciii schema
             cur.execute("SET search_path TO mimiciii, public")
-            
+
             # Read and execute schema SQL
             with open(SCHEMA_FILE, 'r') as f:
                 schema_sql = f.read()
             cur.execute(schema_sql)
-        
+
         conn.commit()
         print("✓ Tables created in mimiciii schema")
     except Exception as e:
@@ -66,25 +66,25 @@ def import_csv_to_table(conn: connection, table_name: str, csv_file: Path):
     if not csv_file.exists():
         print(f"  ⚠ File not found: {csv_file}")
         return
-    
+
     try:
         # Get row count for progress bar
         with open(csv_file, 'r', encoding='utf-8') as f:
             row_count = sum(1 for _ in f) - 1  # Exclude header
-        
+
         if row_count == 0:
             print(f"  ⚠ {table_name}: No data to import")
             return
-        
+
         # Import data
         with open(csv_file, 'r', encoding='utf-8') as f:
             reader = csv.reader(f)
             headers = next(reader)  # Skip header
-            
+
             with conn.cursor() as cur:
                 # Set search path to mimiciii schema
                 cur.execute("SET search_path TO mimiciii, public")
-                
+
                 # Prepare insert statement - use lowercase table name and mimiciii schema
                 table_lower = table_name.lower()
                 columns = sql.SQL(', ').join(map(sql.Identifier, headers))
@@ -94,7 +94,7 @@ def import_csv_to_table(conn: connection, table_name: str, csv_file: Path):
                     columns,
                     placeholders
                 )
-                
+
                 # Insert rows with progress bar
                 rows_imported = 0
                 with tqdm(total=row_count, desc=f"  {table_name:20s}", unit="rows") as pbar:
@@ -104,15 +104,16 @@ def import_csv_to_table(conn: connection, table_name: str, csv_file: Path):
                         cur.execute(insert_query, row)
                         rows_imported += 1
                         pbar.update(1)
-                        
+
                         # Commit in batches
                         if rows_imported % 1000 == 0:
                             conn.commit()
-                
+
                 conn.commit()
-        
+
         print(f"  ✓ {table_name}: {rows_imported:,} rows imported")
-        
+
+
     except Exception as e:
         print(f"  ✗ {table_name}: Failed - {e}")
         conn.rollback()
@@ -121,7 +122,7 @@ def import_csv_to_table(conn: connection, table_name: str, csv_file: Path):
 def import_all_data(conn: connection):
     """Import all MIMIC-III CSV files."""
     print("\nImporting data from CSV files...")
-    
+
     # List of tables to import (in order to respect foreign keys)
     tables = [
         'ADMISSIONS',
@@ -151,7 +152,7 @@ def import_all_data(conn: connection):
         'PROCEDUREEVENTS_MV',
         'PROCEDURES_ICD',
     ]
-    
+
     for table in tables:
         csv_file = MIMIC_DATA_DIR / f'{table}.csv'
         import_csv_to_table(conn, table, csv_file)
@@ -160,19 +161,19 @@ def import_all_data(conn: connection):
 def verify_import(conn: connection):
     """Verify data import by counting rows in mimiciii schema."""
     print("\nVerifying data import...")
-    
+
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT table_name 
-            FROM information_schema.tables 
+            SELECT table_name
+            FROM information_schema.tables
             WHERE table_schema = 'mimiciii'
             ORDER BY table_name
         """)
         tables = [row[0] for row in cur.fetchall()]
-        
+
         print(f"\n{'Table':<25} {'Row Count':>15}")
         print("-" * 42)
-        
+
         total_rows = 0
         for table in tables:
             cur.execute(f"SELECT COUNT(*) FROM mimiciii.{table}")
@@ -180,7 +181,7 @@ def verify_import(conn: connection):
             count = result[0] if result else 0
             total_rows += count
             print(f"{table:<25} {count:>15,}")
-        
+
         print("-" * 42)
         print(f"{'TOTAL':<25} {total_rows:>15,}")
 
@@ -190,30 +191,30 @@ def main():
     print("=" * 50)
     print("MIMIC-III PostgreSQL Database Initialization")
     print("=" * 50)
-    
+
     # Check data directory
     if not MIMIC_DATA_DIR.exists():
         print(f"✗ Data directory not found: {MIMIC_DATA_DIR}")
         return
-    
+
     if not SCHEMA_FILE.exists():
         print(f"✗ Schema file not found: {SCHEMA_FILE}")
         return
-    
+
     print(f"✓ Data directory: {MIMIC_DATA_DIR}")
-    
+
     # Connect and initialize
     conn = connect()
-    
+
     try:
         create_schema(conn)
         import_all_data(conn)
         verify_import(conn)
-        
+
         print("\n" + "=" * 50)
         print("Database initialization complete!")
         print("=" * 50)
-        
+
     finally:
         conn.close()
 

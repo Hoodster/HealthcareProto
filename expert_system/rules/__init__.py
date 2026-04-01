@@ -3,8 +3,8 @@
 from expert_system.rules.base_rule import BaseRule
 from expert_system.rules.qtc_rules import HighQTcRule, ModerateQTcRule, MildQTcRule
 from expert_system.rules.renal_rules import (
-    SevereRenalImpairmentRule, 
-    ModerateRenalImpairmentRule, 
+    SevereRenalImpairmentRule,
+    ModerateRenalImpairmentRule,
     MildRenalImpairmentRule
 )
 from expert_system.rules.interaction_rules import (

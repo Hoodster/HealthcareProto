@@ -24,7 +24,7 @@ except Exception as e:
 def __upload_to_blob_storage__(file_path: str | Path, blob_name: str, overwrite: bool = True):
     if isinstance(file_path, str):
         file_path = Path(file_path)
-    
+
     with file_path.open("rb") as upfile:
         base_container.upload_blob(name=blob_name, data=upfile, overwrite=overwrite)
         upfile.close()
@@ -32,29 +32,29 @@ def __upload_to_blob_storage__(file_path: str | Path, blob_name: str, overwrite:
 def upload(
                           file_name: str,
                           file_path: str,
-                          document_type: BlobDocumentType, 
+                          document_type: BlobDocumentType,
                           overwrite: bool = True):
     upload_file = Path(file_path)
     if not upload_file.is_file():
         raise ValueError("Couldn't retrieve file for upload")
-    
+
     if document_type == 'patient_file':
         subcontainer_name = "docs/"
     elif document_type == 'knowledge_base':
         subcontainer_name = "kb/"
     else:
-        raise ValueError("Invalid document type")    
-    
+        raise ValueError("Invalid document type")
+
     if document_type == 'patient_file' and "/" not in file_name:
         raise ValueError("Patient related files must have {reference}/file.ext format")
-    
+
     blob_path = f"{subcontainer_name}/{file_name}"
     __upload_to_blob_storage__(
         file_path=upload_file,
         blob_name=blob_path,
         overwrite=overwrite
     )
-    
+
 
 def ai_document_upload(
     client: OpenAI,

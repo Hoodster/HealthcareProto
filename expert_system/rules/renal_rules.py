@@ -8,21 +8,21 @@ from expert_system.models.decision_context import DecisionContext, AlertSeverity
 class SevereRenalImpairmentRule(BaseRule):
     """
     Severe renal impairment rule.
-    
+
     IF eGFR < 30 mL/min/1.73m² THEN:
     - Add critical alert
     - Require significant dose reduction
     - Many drugs contraindicated or require alternative dosing
     """
-    
+
     def __init__(self):
         super().__init__()
         self.category = "renal"
         self.threshold = 30  # mL/min/1.73m²
-    
+
     def condition(self, patient: PatientContext) -> bool:
         return patient.egfr < self.threshold
-    
+
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         decision.add_alert(
             message=f"Severe renal impairment: eGFR {patient.egfr} mL/min/1.73m² (Stage 4-5 CKD)",
@@ -36,13 +36,13 @@ class SevereRenalImpairmentRule(BaseRule):
             rule_name=self.name,
             category=self.category
         )
-        
+
         decision.set_dose_adjustment(
             adjusted_dose="Reduce to 25-50% of standard dose, or avoid if possible",
             reason=f"Severe renal impairment (eGFR: {patient.egfr} mL/min/1.73m²)",
             original_dose="Standard dose"
         )
-    
+
     def explanation(self, patient: PatientContext) -> str:
         return (
             f"Severe renal impairment detected with eGFR of {patient.egfr} mL/min/1.73m² "
@@ -55,22 +55,22 @@ class SevereRenalImpairmentRule(BaseRule):
 class ModerateRenalImpairmentRule(BaseRule):
     """
     Moderate renal impairment rule.
-    
+
     IF 30 <= eGFR < 60 mL/min/1.73m² THEN:
     - Add high alert
     - Recommend dose adjustment
     - Monitor drug levels if available
     """
-    
+
     def __init__(self):
         super().__init__()
         self.category = "renal"
         self.lower_threshold = 30  # mL/min/1.73m²
         self.upper_threshold = 60  # mL/min/1.73m²
-    
+
     def condition(self, patient: PatientContext) -> bool:
         return self.lower_threshold <= patient.egfr < self.upper_threshold
-    
+
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         decision.add_alert(
             message=f"Moderate renal impairment: eGFR {patient.egfr} mL/min/1.73m² (Stage 3 CKD)",
@@ -84,13 +84,13 @@ class ModerateRenalImpairmentRule(BaseRule):
             rule_name=self.name,
             category=self.category
         )
-        
+
         decision.set_dose_adjustment(
             adjusted_dose="Reduce to 50-75% of standard dose",
             reason=f"Moderate renal impairment (eGFR: {patient.egfr} mL/min/1.73m²)",
             original_dose="Standard dose"
         )
-    
+
     def explanation(self, patient: PatientContext) -> str:
         return (
             f"Moderate renal impairment detected with eGFR of {patient.egfr} mL/min/1.73m² "
@@ -103,21 +103,21 @@ class ModerateRenalImpairmentRule(BaseRule):
 class MildRenalImpairmentRule(BaseRule):
     """
     Mild renal impairment rule.
-    
+
     IF 60 <= eGFR < 90 mL/min/1.73m² THEN:
     - Add moderate alert
     - Recommend monitoring
     """
-    
+
     def __init__(self):
         super().__init__()
         self.category = "renal"
         self.lower_threshold = 60  # mL/min/1.73m²
         self.upper_threshold = 90  # mL/min/1.73m²
-    
+
     def condition(self, patient: PatientContext) -> bool:
         return self.lower_threshold <= patient.egfr < self.upper_threshold
-    
+
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         decision.add_alert(
             message=f"Mild renal impairment: eGFR {patient.egfr} mL/min/1.73m²",
@@ -131,7 +131,7 @@ class MildRenalImpairmentRule(BaseRule):
             rule_name=self.name,
             category=self.category
         )
-    
+
     def explanation(self, patient: PatientContext) -> str:
         return (
             f"Mild renal impairment detected with eGFR of {patient.egfr} mL/min/1.73m². "

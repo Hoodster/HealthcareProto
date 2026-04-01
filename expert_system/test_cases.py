@@ -13,12 +13,12 @@ def print_decision(patient_name: str, decision: DecisionContext):
     print(f"\n{'='*80}")
     print(f"EVALUATION: {patient_name}")
     print('='*80)
-    
+
     # Contraindication status
     status = "❌ CONTRAINDICATED" if decision.contraindicated else "✓ Not contraindicated"
     print(f"\nStatus: {status}")
     print(f"Risk Score: {decision.risk_score}/100")
-    
+
     # Alerts
     if decision.alerts:
         print(f"\nAlerts ({len(decision.alerts)}):")
@@ -33,19 +33,19 @@ def print_decision(patient_name: str, decision: DecisionContext):
             print(f"     Category: {alert.category} | Rule: {alert.rule_name}")
     else:
         print("\n✓ No alerts")
-    
+
     # Dose adjustment
     if decision.dose_adjustment:
         print(f"\nDose Adjustment:")
         print(f"  Recommended: {decision.dose_adjustment.adjusted_dose}")
         print(f"  Reason: {decision.dose_adjustment.reason}")
-    
+
     # Explanations
     if decision.explanations:
         print(f"\nExplanations ({len(decision.explanations)}):")
         for i, exp in enumerate(decision.explanations, 1):
             print(f"  {i}. {exp[:100]}..." if len(exp) > 100 else f"  {i}. {exp}")
-    
+
     # Triggered rules
     print(f"\nTriggered Rules: {', '.join(decision.triggered_rules)}")
 
@@ -62,11 +62,11 @@ def test_high_risk_cardiac():
         gender="M",
         weight=85
     )
-    
+
     engine = RuleEngine()
     decision = engine.evaluate(patient)
     print_decision("High-Risk Cardiac Patient", decision)
-    
+
     assert decision.contraindicated, "Should be contraindicated due to QTc > 500"
     assert decision.risk_score >= 65, "Risk score should be high"
 
@@ -83,11 +83,11 @@ def test_severe_renal_impairment():
         gender="F",
         weight=70
     )
-    
+
     engine = RuleEngine()
     decision = engine.evaluate(patient)
     print_decision("Severe Renal Impairment Patient", decision)
-    
+
     assert decision.dose_adjustment is not None, "Should have dose adjustment"
     assert any("renal" in alert.category for alert in decision.alerts), "Should have renal alerts"
 
@@ -104,11 +104,11 @@ def test_low_risk_patient():
         gender="M",
         weight=80
     )
-    
+
     engine = RuleEngine()
     decision = engine.evaluate(patient)
     print_decision("Low-Risk Patient", decision)
-    
+
     assert not decision.contraindicated, "Should not be contraindicated"
     assert decision.risk_score < 30, "Risk score should be low"
 
@@ -125,11 +125,11 @@ def test_multiple_risk_factors():
         gender="F",
         weight=65
     )
-    
+
     engine = RuleEngine()
     decision = engine.evaluate(patient)
     print_decision("Multiple Risk Factors Patient", decision)
-    
+
     assert len(decision.alerts) >= 3, "Should have multiple alerts"
     assert decision.dose_adjustment is not None, "Should have dose adjustment"
 
@@ -146,11 +146,11 @@ def test_drug_interactions():
         gender="M",
         weight=88
     )
-    
+
     engine = RuleEngine()
     decision = engine.evaluate(patient)
     print_decision("Drug Interaction Patient", decision)
-    
+
     interaction_alerts = [a for a in decision.alerts if a.category == "interaction"]
     assert len(interaction_alerts) >= 2, "Should have multiple interaction alerts"
 
@@ -158,14 +158,14 @@ def test_drug_interactions():
 def test_batch_evaluation():
     """Test case: Batch evaluation of multiple patients."""
     patients = [
-        PatientContext(patient_id=f"BATCH_{i}", qtc=400 + i*20, egfr=90 - i*10, 
+        PatientContext(patient_id=f"BATCH_{i}", qtc=400 + i*20, egfr=90 - i*10,
                       medications=[], conditions=[], age=50+i, gender="M", weight=75.0)
         for i in range(5)
     ]
-    
+
     engine = RuleEngine()
     decisions = engine.evaluate_batch(patients)
-    
+
     print(f"\n{'='*80}")
     print("BATCH EVALUATION")
     print('='*80)
@@ -174,7 +174,7 @@ def test_batch_evaluation():
         status = "CONTRA" if decision.contraindicated else "OK"
         print(f"  {i}. {patient.patient_id}: QTc={patient.qtc}, eGFR={patient.egfr} "
               f"→ {status} (risk: {decision.risk_score}, alerts: {len(decision.alerts)})")
-    
+
     assert len(decisions) == len(patients), "Should evaluate all patients"
 
 
@@ -183,7 +183,7 @@ def run_all_tests():
     print("\n" + "="*80)
     print("EXPERT SYSTEM TEST SUITE")
     print("="*80)
-    
+
     tests = [
         ("High-Risk Cardiac", test_high_risk_cardiac),
         ("Severe Renal Impairment", test_severe_renal_impairment),
@@ -192,10 +192,10 @@ def run_all_tests():
         ("Drug Interactions", test_drug_interactions),
         ("Batch Evaluation", test_batch_evaluation),
     ]
-    
+
     passed = 0
     failed = 0
-    
+
     for test_name, test_func in tests:
         try:
             test_func()
@@ -207,11 +207,11 @@ def run_all_tests():
         except Exception as e:
             failed += 1
             print(f"\n✗ {test_name} - ERROR: {str(e)}")
-    
+
     print(f"\n{'='*80}")
     print(f"TEST RESULTS: {passed} passed, {failed} failed")
     print('='*80)
-    
+
     return failed == 0
 
 

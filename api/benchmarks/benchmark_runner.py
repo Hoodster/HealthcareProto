@@ -15,7 +15,7 @@ from expert_system import RuleEngine, PatientContext
 from api.services.ai_service import AIModelService
 from api.benchmarks import metrics as m_module
 
-Mode = Literal["expert_only", "llm_only", "full_pipeline"]
+type Mode = Literal["expert_only", "llm_only", "full_pipeline"]
 
 
 class BenchmarkCase(BaseModel):
@@ -31,7 +31,7 @@ class BenchmarkResult(BaseModel):
     mode: Mode
     contraindicated: bool
     risk_score: int
-    alerts: list[dict]          # list of {category, severity, message}
+    alerts: list[dict[str, str]]          # list of {category, severity, message}
     dose_adjustment_present: bool
     response_text: str
     latency_ms: float
@@ -127,26 +127,25 @@ class BenchmarkRunner:
         engine = RuleEngine()
         decision = engine.evaluate(case.patient)
 
-        # Optional RAG
-        rag_chunks: list[str] = []
-        try:
-            from v011.retrieved_augumentation.rag_system import MedicalRAGSystem
-            rag = MedicalRAGSystem()
-            results = rag.retrieve(case.question, top_k=3)
-            rag_chunks = [r.get("text", "") for r in results if r.get("text")]
-        except Exception:
-            pass
+        # # Optional RAG
+        # rag_chunks: list[str] = []
+        # try:
+        #     from v011.retrieved_augumentation.rag_system import MedicalRAGSystem
+        #     rag = MedicalRAGSystem()
+        #     results = rag.retrieve(case.question, top_k=3)
+        #     rag_chunks = [r.get("text", "") for r in results if r.get("text")]
+        # except Exception:
+        #     pass
 
         alert_lines = "\n".join(
             f"  [{a.severity.value if hasattr(a.severity, 'value') else a.severity}] {a.category}: {a.message}"
             for a in decision.alerts
         )
-        rag_section = "\n\nRelevant literature:\n" + "\n---\n".join(rag_chunks) if rag_chunks else ""
+        # rag_section = "\n\nRelevant literature:\n" + "\n---\n".join(rag_chunks) if rag_chunks else ""
         system_prompt = (
             "You are a clinical decision support assistant. "
             f"Expert system result: contraindicated={decision.contraindicated}, "
             f"risk={decision.risk_score}/100.\nAlerts:\n{alert_lines or 'none'}"
-            f"{rag_section}"
         )
         med_line = ", ".join(case.patient.medications) or "none"
         user_msg = (
