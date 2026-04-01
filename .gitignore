@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.env
+
+venv/
+.venv/
+.examples/
+.output/
+.idea/
+
+# Database files
+*.db
+*.sqlite
+*.sql.gz
+*.sql
+
+#csv mimic
+/.sources/mimic/*.csv
+/.sources/mimic/*.txt
+
+# PostgreSQL
+pgdata/
+
+# Docker volumes
+docker-volumes/
