@@ -8,7 +8,7 @@ postgres + docker + python 3.13
 ### Docker
 ```bash
 # Start PostgreSQL with docker-compose
-docker-compose up -d postgres
+docker compose up -d postgres
 
 # Verify it's running
 docker ps | grep mimic-postgres

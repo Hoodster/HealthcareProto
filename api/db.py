@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Iterator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from api.config import get_database_connection_url
@@ -26,7 +26,18 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, futu
 
 
 def init_db() -> None:
-    Base.metadata.create_all(bind=engine)
+    from api.models import APP_SCHEMA_NAME
+
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as connection:
+            connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{APP_SCHEMA_NAME}"'))
+
+    app_tables = [
+        table
+        for table in Base.metadata.tables.values()
+        if table.schema in (None, APP_SCHEMA_NAME)
+    ]
+    Base.metadata.create_all(bind=engine, tables=app_tables)
 
 
 @contextmanager
