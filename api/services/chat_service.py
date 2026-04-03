@@ -10,6 +10,7 @@ from api.services.ai_service import AIModelService
 
 
 class ChatService:
+    
     @staticmethod
     def create_chat(db: Session, user_id: str, payload: schemas.ChatCreate) -> Chat:
         chat = Chat(user_id=user_id, title=payload.title)
@@ -55,6 +56,8 @@ class ChatService:
     @staticmethod
     def chat_with_ai(
         db: Session,
+        model_service: AIModelService,
+        message: str,
         user_id: str,
         chat_id: int,
         payload: schemas.AIChatRequest,
@@ -68,13 +71,9 @@ class ChatService:
         stmt = select(Message).where(Message.chat_id == chat.id).order_by(Message.created_at.asc())
         prior_messages = list(db.execute(stmt).scalars().all())
 
-        messages: list[dict[str, str]] = []
-        if payload.system_prompt:
-            messages.append({"role": "system", "content": payload.system_prompt})
-        for message in prior_messages:
-            messages.append({"role": message.role, "content": message.content})
-
-        assistant_text = AIModelService().chat(messages=messages, model=payload.model)
+        chat.messages.sort(key=lambda m: m.created_at)
+        
+        assistant_text = model_service.chat(message)
 
         assistant_msg = Message(chat_id=chat.id, role="assistant", content=assistant_text)
         db.add(assistant_msg)
@@ -82,7 +81,7 @@ class ChatService:
 
         return schemas.AIChatResponse(
             assistant_message=assistant_text,
-            model=(payload.model or "default"),
+            model=("default"),
         )
 
     @staticmethod
@@ -166,7 +165,7 @@ class ChatService:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": payload.message},
         ]
-        assistant_text = AIModelService().chat(messages=messages, model=payload.model)
+        assistant_text = AIModelService().chat(message=payload.message)
 
         alerts_out = [
             schemas.ClinicalAlert(

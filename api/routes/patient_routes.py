@@ -29,8 +29,8 @@ def list_patients(db: Session = Depends(get_db_session), user: User = Depends(ge
 
 
 @router.get("/{patient_id}", response_model=schema.PatientOut)
-def get_patient(patient_id: str, db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
-    return PatientService.get_by_id(db, patient_id, user.id)
+def get_patient(patient_id: str, db: Session = Depends(get_db_session)):
+    return PatientService.get_by_id(db, patient_id)
 
 
 @router.post("/{patient_id}/files", response_model=schema.PatientFileOut)
@@ -38,16 +38,15 @@ def add_patient_file(
     patient_id: str,
     payload: schema.PatientFileCreate,
     db: Session = Depends(get_db_session),
-    user: User = Depends(get_current_user),
 ):
     return DocumentationService.attach_document(
-        db, user.id, patient_id, payload.filename, payload.content_text
+        db, patient_id, payload.filename, payload.content_text
     )
 
 
 @router.get("/{patient_id}/files", response_model=list[schema.PatientFileOut])
-def list_patient_files(patient_id: str, db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
-    return DocumentationService.list_documents(db, user.id, patient_id)
+def list_patient_files(patient_id: str, db: Session = Depends(get_db_session)):
+    return DocumentationService.list_documents(db, patient_id)
 
 
 @router.post("/{patient_id}/history", response_model=schema.PatientHistoryOut)
@@ -58,7 +57,7 @@ def add_history_entry(
     user: User = Depends(get_current_user),
 ):
     return PatientService.add_history_record(
-        db, user.id, patient_id, payload.kind, payload.note, payload.occurred_at
+        db, patient_id, payload.kind, payload.note, payload.occurred_at
     )
 
 
@@ -67,13 +66,12 @@ def list_history(
     patient_id: str,
     kind: str | None = Query(default=None),
     db: Session = Depends(get_db_session),
-    user: User = Depends(get_current_user),
 ):
-    return PatientService.list_history(db, user.id, patient_id, kind=kind)
+    return PatientService.list_history(db, patient_id, kind=kind)
 
 @router.get("/{patient_id}/visits", response_model=list[schema.PatientHistoryOut])
-def list_visits(patient_id: str, db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
-    return PatientService.list_history(db, user.id, patient_id, kind="visit")
+def list_visits(patient_id: str, db: Session = Depends(get_db_session)):
+    return PatientService.list_history(db, patient_id, kind="visit")
 
 
 @router.post("/{patient_id}/chat/ai", response_model=schema.ClinicalChatResponse)
@@ -90,10 +88,9 @@ def patient_clinical_chat(
 @router.get("/{patient_id}/context")
 def get_patient_context(
     patient_id: str,
-    db: Session = Depends(get_db_session),
-    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db_session)
 ):
     """Return the PatientContext as built from the patient's history records."""
-    PatientService.get_by_id(db, patient_id, user.id)  # authorization check
+    PatientService.get_by_id(db, patient_id)  # authorization check
     ctx = PatientService.build_patient_context(patient_id, db)
     return ctx.model_dump()

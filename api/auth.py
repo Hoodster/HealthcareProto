@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from cProfile import Profile
 import os
 import secrets
 from typing import Annotated

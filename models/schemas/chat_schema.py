@@ -36,8 +36,6 @@ class MessageOut(BaseModel):
 
 class AIChatRequest(BaseModel):
     message: str = Field(..., description="User message to send to the AI")
-    system_prompt: Optional[str] = None
-    model: Optional[str] = None
 
 
 class AIChatResponse(BaseModel):

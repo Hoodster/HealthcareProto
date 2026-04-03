@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from api.db import get_db_session
+from api.services import ai_service
 import models.schemas as schemas
 from api.auth import get_current_user
 from api.models import User
@@ -54,4 +55,5 @@ def chat_with_ai(
     db: Session = Depends(get_db_session),
     user: User = Depends(get_current_user),
 ):
-    return ChatService.chat_with_ai(db, user.id, chat_id, payload)
+    ai_service_instance = ai_service.AIModelService()
+    return ChatService.chat_with_ai(db, model_service=ai_service_instance, message=payload.message, user_id=user.id, chat_id=chat_id, payload=payload)
