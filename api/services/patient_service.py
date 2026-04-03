@@ -117,7 +117,7 @@ class PatientService:
 
         profile_text = (
             f"Patient {patient.first_name} {patient.last_name}, "
-            f"born on {patient.dob}, sex: {patient.sex}\n\n"
+            f"age {date.today().year - patient.dob.year if patient.dob else 'unknown'}, sex: {patient.sex}\n\n"
         )
 
         if files:
@@ -132,21 +132,8 @@ class PatientService:
                 note_preview = entry.note[:100] if entry.note else ""
                 profile_text += f"- [{entry.occurred_at}] {entry.kind}: {note_preview}...\n"
 
-        summary = AIModelService().chat(
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a medical AI assistant. Summarize patient information concisely.",
-                },
-                {
-                    "role": "user",
-                    "content": f"Summarize the following patient information:\n\n{profile_text}",
-                },
-            ],
-            temperature=0.2,
-            max_tokens=500,
-        )
-        return summary
+        ai_service = AIModelService()
+        return ai_service.summarize(profile_text)
 
     @staticmethod
     def build_patient_context(patient_id: str, db: Session):
