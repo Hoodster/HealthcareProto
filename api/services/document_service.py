@@ -3,7 +3,7 @@ from typing import Literal
 
 from openai import OpenAI
 import os
-from azure.storage.blob import BlobClient, BlobServiceClient
+from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
 
 load_dotenv()

@@ -2,11 +2,9 @@
 
 from typing import Annotated, List
 from fastapi import APIRouter, HTTPException, Depends, Query
-from sqlalchemy.orm import Session
 from expert_system.models.patient_context import PatientContext
 from expert_system.models.decision_context import DecisionContext
 from expert_system.engine.rule_engine import RuleEngine
-from api.auth import get_db
 
 router = APIRouter(prefix="/evaluate", tags=["expert-system"])
 

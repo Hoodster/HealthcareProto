@@ -25,11 +25,6 @@ def new_token() -> str:
     return secrets.token_hex(24)
 
 
-def get_db():
-    with get_db_session() as db:
-        yield db
-
-
 def _get_or_create_dev_user(db: Session, *, email: str, password: str, full_name: str | None, role: str | None) -> User:
     existing = db.execute(select(User).where(User.email == email)).scalars().first()
     if existing:
@@ -67,7 +62,7 @@ def _dev_user_from_role(db: Session, role_key: str | None) -> User:
 
 
 def get_current_user(
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[Session, Depends(get_db_session)],
     dev_role: Annotated[str | None, Header(alias="X-Dev-Role")] = None,
 ) -> User:
     return _dev_user_from_role(db, dev_role)
