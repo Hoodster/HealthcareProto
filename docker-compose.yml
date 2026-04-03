@@ -1,22 +1,42 @@
+
 services:
+
   postgres:
     image: postgres:15-alpine
-    container_name: mimic-postgres
+    container_name: ${POSTGRES_CONTAINER_NAME:-mimic-postgres}
     environment:
-      POSTGRES_DB: mimic_demo
-      POSTGRES_USER: mimic_user
-      POSTGRES_PASSWORD: mimic_password
+      POSTGRES_DB: ${POSTGRES_DB:-mimic_demo}
+      POSTGRES_USER: ${POSTGRES_USER:-mimic_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mimic_password}
       POSTGRES_INITDB_ARGS: "-E UTF8"
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - mimic_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mimic_user -d mimic_demo"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mimic_user} -d ${POSTGRES_DB:-mimic_demo}"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
+  backend:
+    build: .
+    container_name: ${BACKEND_CONTAINER_NAME:-healthcare-backend}
+    command: uvicorn api.app:app --host 0.0.0.0 --port 8000
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql://mimic_user:mimic_password@postgres:5432/mimic_demo}
+      DB_HOST: ${DOCKER_DB_HOST:-postgres}
+      DB_PORT: ${DOCKER_DB_PORT:-5432}
+      DB_NAME: ${POSTGRES_DB:-mimic_demo}
+      DB_USER: ${POSTGRES_USER:-mimic_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-mimic_password}
+
 
 volumes:
   mimic_postgres_data:
