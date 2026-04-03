@@ -1,44 +1,76 @@
-# Setup
+# HealthcareProto
 
-## Dependencies
-postgres + docker + python 3.13
+## Project Layout
 
-## Before
-
-### Docker
-```bash
-# Start PostgreSQL with docker-compose
-docker compose up -d postgres
-
-# Verify it's running
-docker ps | grep mimic-postgres
-
-# Test connection
-psql postgresql://USER:PASSWORD@localhost:5432/mimic_demo -c "SELECT version();"
+```text
+api/              FastAPI app, routes, services, SQLAlchemy models
+expert_system/    Rule engine and clinical rules
+models/           Pydantic schemas shared across the app
+scripts/          Scripts
 ```
 
-### Copy environment and fill
+## Configuration
+Create it from the sample file:
+
 ```bash
 cp .env.example .env
 ```
 
-## Install
+## Quick Start
+
+### Full docker
+
+This starts PostgreSQL and the backend together.
+
+```bash
+docker compose up --build
+```
+
+API docs:
+
+```text
+http://localhost:8000/hp_proto/api/swagger
+```
+
+### DB + backend
+
+Start PostgreSQL only:
+
+```bash
+docker compose up -d postgres
+```
+
+Create and activate a virtual environment, then install dependencies:
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-
-pip3 install -r requirements.txt 
+pip3 install -r requirements.txt
 ```
 
-## Run
+### Run
 ```bash
-source .venv/bin/activate # optional
 python3 -m uvicorn api.app:app --host 127.0.0.1 --port 8000 --reload
 ```
-
 ## Documentation
 http://localhost:8000/hp_proto/api/swagger
+## MIMIC-III Demo Import
 
-# TODO
-- drug database (drug-to-druge, safety db)
-- 
+If you want to load MIMIC demo data into PostgreSQL:
+
+1. Put the CSV files under `.sources/mimic/`.
+2. Ensure `.sources/mimic/.create_tables.sql` exists.
+3. Configure the PostgreSQL connection in `.env`.
+4. Run:
+
+```bash
+python3 scripts/init_mimic_db.py
+```
+
+The script creates and populates the `mimiciii` schema.
+
+## Expert System
+
+```bash
+python3 -m expert_system.test_cases
+```
