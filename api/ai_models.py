@@ -81,8 +81,15 @@ class ChatGPTAIModel(AIModel):
         return OpenAI(api_key=api_key)
     
     
-    def answer(self, question):
+    def answer(self, session_id, question):
         client = self.__getclient__()
+        user_msg = (
+            f"Patient: age {case.patient.age}, gender {case.patient.gender}, "
+            f"QTc {case.patient.qtc} ms, eGFR {case.patient.egfr} mL/min/1.73m². "
+            f"Medications: {med_line}. "
+            f"Conditions: {', '.join(case.patient.conditions) or 'none'}. "
+            f"Question: {case.question}"
+        )
         response = client.responses.create(
             model=self.model,
             input=[
