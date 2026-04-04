@@ -1,58 +1,56 @@
 # HealthcareProto
-
+Backend service for Healthcare Prototype App
 ## Project Layout
 
 ```text
+alembic/          Database migrations
 api/              FastAPI app, routes, services, SQLAlchemy models
 expert_system/    Rule engine and clinical rules
 models/           Pydantic schemas shared across the app
 scripts/          Scripts
 ```
 
-## Configuration
-Create it from the sample file:
+## Start here - local configuration
+1. Create runtime variables from the sample file and edit new `.env` file:
 
 ```bash
 cp .env.example .env
 ```
-
-## Quick Start
-
-### Full docker
-
-This starts PostgreSQL and the backend together.
-
-```bash
-docker compose up --build
-```
-
-API docs:
-
-```text
-http://localhost:8000/hp_proto/api/swagger
-```
-
-### DB + backend
-
-Start PostgreSQL only:
-
-```bash
-docker compose up -d postgres
-```
-
-Create and activate a virtual environment, then install dependencies:
+2. Create local environment and install required packages (requires Python installed) <br/>
 
 ```bash
 python3 -m venv .venv
+
 source .venv/bin/activate
 pip3 install -r requirements.txt
 ```
-
-### Run
+3. Run app
 ```bash
-python3 -m uvicorn api.app:app --host 127.0.0.1 --port 8000 --reload
+python3 -m uvicorn api.app:app --host 127.0.0.1 --port 8000 --reload  
 ```
+## or start here - docker configuration
+You can either build whole image or split app on separate modules.
+
+```bash
+docker compose up -d [ | postgres | backend]
+```
+
+## Database
+Based on `DB_URL` value app determines target between SQLLite (locally) and postgreSQL (locally + web)
+For migrations project uses **alembic**.
+
+### Migrations
+To get newest schema to existing database or to adjust after code change run
+
+```bash
+alembic revision --autogenerate -m "message" # skip for update only
+alembic upgrade head
+```
+
+SQLite database is saved in /.output folder by default. You can change it in `.env`
+
 ## Documentation
+After local run you can find swagger docs in <br>
 http://localhost:8000/hp_proto/api/swagger
 ## MIMIC-III Demo Import
 
