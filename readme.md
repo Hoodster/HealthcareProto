@@ -1,7 +1,7 @@
 <p align="center">
   <img
     src="https://mir-s3-cdn-cf.behance.net/project_modules/disp/ef5103232954083.692a23beb7a5d.gif"
-    width="700"
+    width="1000"
   />
 </p>
 
