@@ -17,7 +17,7 @@ class PatientDiagnosis(Base):
     __tablename__ = "patient_diagnoses"
     __table_args__ = (
         Index('ix_patient_diagnosis_patient', 'patient_id'),
-        Index('ix_patient_diagnosis_code', 'diagnosis_code'),
+        Index('ix_patient_diagnosis_code', 'diagnosis_code_icd'),
         {'schema': APP_SCHEMA_NAME}
     )
 
@@ -68,6 +68,7 @@ class Patient(Base):
         UniqueConstraint("user_id", "dob", "sex", name="uq_patient_user_identity"),
         {'schema': APP_SCHEMA_NAME}
     )
+    patient_id: Mapped[str] = mapped_column(String, default=lambda: str(uuid4()), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), index=True, nullable=False)
     dob: Mapped[date | None] = mapped_column(Date, nullable=True)
     sex: Mapped[str | None] = mapped_column(String(32), nullable=True)

@@ -3,9 +3,11 @@ from __future__ import annotations
 import datetime
 import os
 import secrets
+import token
 from typing import Annotated
 import random
 
+from dns.dnssecalgs import algorithms
 from fastapi import Depends, Header
 import passlib.context
 from sqlalchemy import select
@@ -19,7 +21,7 @@ from jwt import JWT, jwk_from_dict
 
 EXAMPLE_SECRET = "aaa2137bbb"
 
-def create_jwt_token(user_id: int):
+def create_jwt_token(user_id: str):
     now = datetime.datetime.now(datetime.UTC)
     payload = {
         "sub": str(user_id),
@@ -30,14 +32,30 @@ def create_jwt_token(user_id: int):
     key = jwk_from_dict({"kty": "oct", "k": EXAMPLE_SECRET})
     return JWT().encode(payload, key, alg="HS256")
 
+def decode_jwt_token(token: str):
+    if not token.startswith("Bearer "):
+        raise RuntimeError("Invalid authorization header")
+    
+    token_code = token.split(" ")[1]
+    key = jwk_from_dict({"kty": "oct", "k": EXAMPLE_SECRET})
+    try:
+        payload = JWT().decode(token_code, key, algorithms={'HS256'})
+    except Exception as e:
+        raise RuntimeError("Invalid token") from e
+        
+    user_id = payload.get("sub")
+    if not user_id:
+        raise RuntimeError("Could not retrieve userid")
+    return user_id
+
 
 
 def __get_or_create_dev_user__(
     db: Session, 
     *, 
     email: str, 
-    full_name: str | None, 
-    role: str | None
+    full_name: str, 
+    role: str,
     sex: str) -> User:
     existing = db.execute(select(User).where(User.email == email)).scalars().first()
     if existing:
@@ -45,7 +63,7 @@ def __get_or_create_dev_user__(
         db.refresh(existing)
         return existing
 
-    user = User(email=email, api_token=new_token(), sex=sex, full_name=full_name, role=role)
+    user = User(email=email, sex=sex, full_name=full_name)
     db.add(user)
     db.flush()
     db.commit()
@@ -53,44 +71,47 @@ def __get_or_create_dev_user__(
     return user
 
 
-def seed_users(db: Session, seed: int = 42, patient_count: int = 1):
+def seed_users(db: Session):
 
-    _get_or_create_dev_user(
+    __get_or_create_dev_user__(
         db,
         email=os.getenv("DEV_ADMIN_EMAIL", 'admin@local'),
         full_name=os.getenv("DEV_ADMIN_NAME", "Admin"),
         role="admin",
+        sex="M"
     )
-    _get_or_create_dev_user(
+    __get_or_create_dev_user__(
         db,
         email=os.getenv("DEV_CLINICIAN_EMAIL", "doctor@local"),
         full_name=os.getenv("DEV_CLINICIAN_NAME", "doctor"),
         role="doctor",
-    )
-    
-def _dev_user_from_role(db: Session, role_key: str | None) -> User:
-    key = (role_key or os.getenv("DEV_ROLE") or "clinician").strip().lower()
-
-    if key in {"admin", "administrator"}:
-        return _get_or_create_dev_user(
-            db,
-            email=os.getenv("DEV_ADMIN_EMAIL", 'admin@local'),
-            password=os.getenv("DEV_ADMIN_PASSWORD", "admin"),
-            full_name=os.getenv("DEV_ADMIN_NAME", "Admin"),
-            role="admin",
-        )
-
-    return _get_or_create_dev_user(
-        db,
-        email=os.getenv("DEV_CLINICIAN_EMAIL", "clinician@local"),
-        password=os.getenv("DEV_CLINICIAN_PASSWORD", "clinician"),
-        full_name=os.getenv("DEV_CLINICIAN_NAME", "Clinician"),
-        role="clinician",
+        sex="F"
     )
 
+def sign_in(
+    db: Annotated[Session, Depends(get_db_session)],
+    email: str = Header(...),
+):
+    user = db.execute(select(User).where(User.email == email)).scalars().first()
+    if not user:
+        raise RuntimeError("User not found")
+    token = create_jwt_token(user.id)
+    return {"access_token": token, "token_type": "bearer"}
 
 def get_current_user(
     db: Annotated[Session, Depends(get_db_session)],
+    header: Annotated[str, Header(..., alias="Authorization")]
 ) -> User:
-    return _dev_user_from_role(db, dev_role)
+    if not header.startswith("Bearer "):
+        raise RuntimeError("Invalid authorization header")
+    token = header.split(" ")[1]
+    user = User()
+    try:
+        payload = decode_jwt_token(token)
+        user_id = payload.get("sub")
+        user = db.execute(select(User).where(User.id == user_id)).scalars().first() or User()
+    except Exception as e:
+        raise RuntimeError("Invalid token") from e
+    
+    return user
 

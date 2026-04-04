@@ -1,3 +1,5 @@
+from abc import abstractmethod
+from dataclasses import dataclass
 from typing import Optional
 
 from api.config import get_openai_api_key
@@ -79,23 +81,35 @@ class ChatGPTAIModel(AIModel):
                 "OPENAI_API_KEY not set. Set OPENAI_API_KEY in the environment or in .env."
             )
         return OpenAI(api_key=api_key)
-    
-    
-    def answer(self, session_id, question):
+        
+    def answer(self,
+               question,
+               patient_data=None) -> str:
         client = self.__getclient__()
-        user_msg = (
-            f"Patient: age {case.patient.age}, gender {case.patient.gender}, "
-            f"QTc {case.patient.qtc} ms, eGFR {case.patient.egfr} mL/min/1.73m². "
-            f"Medications: {med_line}. "
-            f"Conditions: {', '.join(case.patient.conditions) or 'none'}. "
-            f"Question: {case.question}"
-        )
+        
+        dev_prompt = ""
+        if patient_data:
+            user_msg = (
+                f"Patient: age {patient_data.age}, gender {patient_data.gender}, "
+            f"QTc {patient_data.qtc} ms, eGFR {patient_data.egfr} mL/min/1.73m². "
+            f"Medications: {', '.join(patient_data.medications) if patient_data.medications else 'none'}. "
+            f"Conditions: {', '.join(patient_data.conditions) if patient_data.conditions else 'none'}. "
+            )
+            
+            dev_prompt += f"""
+            During preparing an answer, consider patient's following conditions:
+            {user_msg}
+            """
+        dev_prompt += self.prompts.question_prompt
+            
+        
+        f"Question: {question}"
         response = client.responses.create(
             model=self.model,
             input=[
                 {"role": "system", "content": f"{self.prompts.system_prompt}"},
-                {"role": "developer", "content": f"{self.prompts.question_prompt}"},
-                {"role": "user", "content": f"{self.prompts.question_prompt} {question}"},
+                {"role": "developer", "content": f"{dev_prompt}"},
+                {"role": "user", "content": question},
             ]
         )
         return response.output_text

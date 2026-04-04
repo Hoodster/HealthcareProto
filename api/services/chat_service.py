@@ -5,28 +5,28 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import models.schemas as schemas
-from api.models import Chat, Message
+from api.models import ChatMessage
 from api.services.ai_service import AIModelService
 
 
 class ChatService:
     
     @staticmethod
-    def create_chat(db: Session, user_id: str, payload: schemas.ChatCreate) -> Chat:
-        chat = Chat(user_id=user_id, title=payload.title)
+    def create_chat(db: Session, user_id: str, payload: schemas.ChatCreate) -> ChatMessage:
+        chat = ChatMessage(user_id=user_id, title=payload.title)
         db.add(chat)
         db.commit()
         db.refresh(chat)
         return chat
 
     @staticmethod
-    def list_chats(db: Session, user_id: str) -> list[Chat]:
-        stmt = select(Chat).where(Chat.user_id == user_id).order_by(Chat.created_at.desc())
+    def list_chats(db: Session, user_id: str) -> list[ChatMessage]:
+        stmt = select(ChatMessage).where(ChatMessage.user_id == user_id).order_by(ChatMessage.created_at.desc())
         return list(db.execute(stmt).scalars().all())
 
     @staticmethod
-    def get_chat(db: Session, user_id: str, chat_id: int) -> Chat:
-        chat = db.get(Chat, chat_id)
+    def get_chat(db: Session, user_id: str, chat_id: int) -> ChatMessage:
+        chat = db.get(ChatMessage, chat_id)
         if not chat:
             raise HTTPException(status_code=404, detail="Chat not found")
         if chat.user_id != user_id:

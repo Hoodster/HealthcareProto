@@ -7,6 +7,15 @@ class AIModelPrompts:
     system_prompt: str
     question_prompt: str
     summary_prompt: str
+    
+@dataclass
+class PatientReferenceData:
+    age: int
+    gender: str
+    qtc: Optional[int] = None
+    egfr: Optional[float] = None
+    medications: Optional[list[str]] = None
+    conditions: Optional[list[str]] = None
 
 class AIModel(ABC):
     def __init__(self, name: str, description: str, model: str, prompts: Optional[AIModelPrompts] = None):
@@ -20,7 +29,7 @@ class AIModel(ABC):
         )
         
     @abstractmethod
-    def answer(self, question: str) -> str:
+    def answer(self, question: str, patient_data: Optional[PatientReferenceData] = None) -> str:
         raise NotImplementedError("Subclasses must implement this method")
     
     @abstractmethod
