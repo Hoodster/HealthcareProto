@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 from typing import Iterator
 
 from sqlalchemy import create_engine, text
@@ -40,7 +39,6 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine, tables=app_tables)
 
 
-@contextmanager
 def get_db_session() -> Iterator[Session]:
     db = SessionLocal()
     try:

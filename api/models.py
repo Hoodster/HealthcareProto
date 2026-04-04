@@ -44,21 +44,36 @@ class User(Base):
 
     id: Mapped[str] = mapped_column(String, default=lambda: str(uuid4()), primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    api_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
-    patient_id: Mapped[str | None] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.app_patients.patient_id"), index=True, nullable=True)
-    staff_id: Mapped[str | None] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.staff_profiles.staff_id"), index=True, nullable=True)
-    
-    patient: Mapped[Patient] = relationship(back_populates="user_patient")
-    staff: Mapped[Staff] = relationship(back_populates="user_staff")
+
+    patient: Mapped["Patient | None"] = relationship(
+        back_populates="user",
+        foreign_keys="Patient.user_id",
+        uselist=False,
+    )
+    staff: Mapped["Staff | None"] = relationship(
+        back_populates="user",
+        foreign_keys="Staff.user_id",
+        uselist=False,
+    )
 
    
 class Staff(Base):
     __tablename__ = "staff_profiles"
     __table_args__ = {'schema': APP_SCHEMA_NAME}
 
-    staff_id: Mapped[str] = mapped_column(String, default=lambda: str(uuid4()), primary_key=True)
+    id: Mapped[str] = mapped_column(String, default=lambda: str(uuid4()), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), unique=True, index=True, nullable=False)
     role: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
+
+    user: Mapped[User] = relationship(
+        back_populates="staff",
+        foreign_keys=[user_id],
+    )
 
 
 class Patient(Base):
@@ -68,11 +83,16 @@ class Patient(Base):
         UniqueConstraint("user_id", "dob", "sex", name="uq_patient_user_identity"),
         {'schema': APP_SCHEMA_NAME}
     )
-    patient_id: Mapped[str] = mapped_column(String, default=lambda: str(uuid4()), primary_key=True)
+    patient_id: Mapped[str] = mapped_column("id", String, default=lambda: str(uuid4()), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), index=True, nullable=False)
     dob: Mapped[date | None] = mapped_column(Date, nullable=True)
     sex: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
+
+    user: Mapped[User] = relationship(
+        back_populates="patient",
+        foreign_keys=[user_id],
+    )
 
     files: Mapped[list["PatientFile"]] = relationship(back_populates="patient", cascade="all, delete-orphan")
     history_entries: Mapped[list["PatientHistoryEntry"]] = relationship(

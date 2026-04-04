@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 
 from pydantic import BaseModel, Field
+from pydantic_core.core_schema import str_schema
 
 
 class RegisterRequest(BaseModel):
@@ -19,7 +20,7 @@ class LoginRequest(BaseModel):
 
 class AccessTokenResponse(BaseModel):
     access_token: str
-    token_type: str
+    expires_in: int
 
 
 class AuthResponse(BaseModel):

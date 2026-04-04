@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 
 from api.db import init_db
+from api.routes.auth_routes import router as auth_router
 from api.routes.ai_routes import router as ai_router
 from api.routes.chat_routes import router as chat_router
 from api.routes.patient_routes import router as patient_router
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    api_router.include_router(auth_router)
     api_router.include_router(patient_router)
     api_router.include_router(chat_router)
     api_router.include_router(ai_router)

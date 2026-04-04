@@ -18,8 +18,8 @@ switch_to_app_context()
 
 # Import models to ensure they're registered
 from api.models import (
-    Base, User, StaffProfile, Patient, PatientFile,
-    PatientHistoryEntry, Chat, Message, MedDocument
+    Base, User, Staff, Patient, PatientFile,
+    PatientHistoryEntry, ChatMessage, MedDocument
 )
 from api.config import get_database_connection_url
 
@@ -211,13 +211,12 @@ def main():
     # Migrate tables in dependency order
     migration_order = [
         (User, 'users'),           # No dependencies
-        (StaffProfile, 'staff_profiles'),   # Depends on User
+        (Staff, 'staff_profiles'),   # Depends on User
         (Patient, 'patients'),        # Depends on User - SQLite uses 'patients', PG uses 'app_patients'
         (PatientFile, 'patient_files'),    # Depends on Patient
         (PatientHistoryEntry, 'patient_history'),  # Depends on Patient
         (MedDocument, 'med_documents'),    # Depends on User and Patient
-        (Chat, 'chats'),           # Depends on User
-        (Message, 'messages'),        # Depends on Chat
+        (ChatMessage, 'chats'),           # Depends on User
     ]
 
     with SessionSQLite() as sqlite_session, SessionPG() as pg_session:
