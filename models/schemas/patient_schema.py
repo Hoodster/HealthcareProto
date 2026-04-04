@@ -14,7 +14,7 @@ class PatientCreate(BaseModel):
 
 
 class PatientOut(BaseModel):
-    id: str
+    patient_id: str
     first_name: str
     last_name: str
     dob: dt.date | None

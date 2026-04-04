@@ -17,6 +17,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class AccessTokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+
+
 class AuthResponse(BaseModel):
     token: str
     user_id: str

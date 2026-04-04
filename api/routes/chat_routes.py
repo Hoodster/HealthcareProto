@@ -11,7 +11,7 @@ from api.models import User
 from api.services.chat_service import ChatService
 
 
-router = APIRouter(prefix="/chats", tags=["chats"])
+router = APIRouter(prefix="/chats", tags=["chats"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("", response_model=schemas.ChatOut)

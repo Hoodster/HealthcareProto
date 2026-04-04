@@ -3,11 +3,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from api.auth import get_current_user
 from api.db import get_db_session
 from api.services.mimic_service import get_heart_patients, get_all_patients, build_mimic_patient_context
 
 
-router = APIRouter(prefix="/mimic", tags=["mimic"])
+router = APIRouter(prefix="/mimic", tags=["mimic"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("/test")

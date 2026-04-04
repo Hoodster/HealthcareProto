@@ -1,4 +1,5 @@
 from .auth_schema import (
+    AccessTokenResponse,
     AuthResponse,
     LoginRequest,
     ProfileOut,
@@ -29,6 +30,7 @@ __all__ = [
     # auth
     "RegisterRequest",
     "LoginRequest",
+    "AccessTokenResponse",
     "AuthResponse",
     "ProfileOut",
     # chat

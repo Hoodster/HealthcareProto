@@ -45,8 +45,8 @@ class User(Base):
     id: Mapped[str] = mapped_column(String, default=lambda: str(uuid4()), primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
-    patient_id: Mapped[str | None] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.app_patients.id"), index=True, nullable=True)
-    staff_id: Mapped[str | None] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.staff_profiles.id"), index=True, nullable=True)
+    patient_id: Mapped[str | None] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.app_patients.patient_id"), index=True, nullable=True)
+    staff_id: Mapped[str | None] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.staff_profiles.staff_id"), index=True, nullable=True)
     
     patient: Mapped[Patient] = relationship(back_populates="user_patient")
     staff: Mapped[Staff] = relationship(back_populates="user_staff")

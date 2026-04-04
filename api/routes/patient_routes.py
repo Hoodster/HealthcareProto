@@ -12,7 +12,7 @@ from api.services.patient_service import DocumentationService, PatientService
 from api.services.chat_service import ChatService
 
 
-router = APIRouter(prefix="/patients", tags=["patients"])
+router = APIRouter(prefix="/patients", tags=["patients"], dependencies=[Depends(get_current_user)])
 
 
 @router.post("", response_model=schema.PatientOut)
