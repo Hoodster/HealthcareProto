@@ -15,7 +15,7 @@ from api.models import Patient, Staff, User
 
 from jwt import JWT, jwk_from_dict
 
-from models.schemas.auth_schema import AccessTokenResponse
+from models.schemas.auth_schema import AccessTokenResponse, LoginOut
 
 EXAMPLE_SECRET = "aaa2137bbb"
 bearer_scheme = HTTPBearer()
@@ -123,6 +123,10 @@ def seed_users(db: Session):
         role="patient",
         sex="M"
     )
+    
+def get_all_users(db: HPDbSession) -> list[LoginOut]:
+    results = db.execute(select(User).where(User.email.endswith("@local"))).scalars().all()
+    return [LoginOut(email=user.email, password=user.password_hash or '') for user in results]
 
 def sign_in(
     db: HPDbSession,
@@ -157,3 +161,4 @@ def get_current_user(
 
     return user
 
+CurrentUser = Annotated[User, Depends(get_current_user)]

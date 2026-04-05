@@ -28,6 +28,10 @@ class AuthResponse(BaseModel):
     token: str
     user_id: str
     email: str
+    
+
+class LoginOut(LoginRequest):
+    pass
 
 
 class ProfileOut(BaseModel):

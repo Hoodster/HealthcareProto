@@ -4,6 +4,7 @@ from .auth_schema import (
     LoginRequest,
     ProfileOut,
     RegisterRequest,
+    LoginOut
 )
 from .chat_schema import (
     AIChatRequest,
@@ -33,6 +34,7 @@ __all__ = [
     "AccessTokenResponse",
     "AuthResponse",
     "ProfileOut",
+    "LoginOut",
     # chat
     "ChatCreate",
     "ChatOut",
