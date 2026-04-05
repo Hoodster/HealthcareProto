@@ -24,15 +24,12 @@ class PatientService:
     @staticmethod
     def create_patient_profile(
         db: Session,
-        user_id: str,
-        patient_dto: User,
-        dob: date | None = None,
-        sex: schemas.PatientSex | None = None,
+        patient_dto: schemas.PatientCreate,
     ) -> Patient:
         patient = Patient(
-            user_id=user_id,
-            dob=dob,
-            sex=sex,
+            user_id=patient_dto.user_id,
+            dob=patient_dto.dob,
+            sex=patient_dto.sex,
         )
         db.add(patient)
         db.commit()
@@ -209,6 +206,12 @@ class PatientService:
             gender=gender,
             weight=None,
         )
+        
+    @staticmethod
+    def delete_all_patients(db: Session):
+        """Dangerous method to delete all patient records - for testing purposes."""
+        db.query(Patient).delete()
+        db.commit()
 
 
 class DocumentationService:

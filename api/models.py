@@ -74,10 +74,10 @@ class Staff(Base):
     __table_args__ = {'schema': APP_SCHEMA_NAME}
 
     id: Mapped[str] = mapped_column(String, default=lambda: str(uuid4()), primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), unique=True, index=True, nullable=False)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), unique=True, index=True, nullable=True)
     role: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
-    user: Mapped[User] = relationship(
+    user: Mapped[User | None] = relationship(
         back_populates="staff",
         foreign_keys=[user_id],
     )
@@ -91,11 +91,11 @@ class Patient(Base):
         {'schema': APP_SCHEMA_NAME}
     )
     patient_id: Mapped[str] = mapped_column("id", String, default=lambda: str(uuid4()), primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), index=True, nullable=False)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), index=True, nullable=True)
     dob: Mapped[date | None] = mapped_column(Date, nullable=True)
     sex: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
-    user: Mapped[User] = relationship(
+    user: Mapped[User | None] = relationship(
         back_populates="patient",
         foreign_keys=[user_id],
     )

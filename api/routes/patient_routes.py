@@ -6,22 +6,21 @@ from sqlalchemy.orm import Session
 
 from api.db import get_db_session
 import models.schemas as schema
-from api.auth import get_current_user
+from api.auth import HPDbSession, get_current_user
 from api.models import User
 from api.services.patient_service import DocumentationService, PatientService
 from api.services.chat_service import ChatService
 
 
-router = APIRouter(prefix="/patients", tags=["patients"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/patients", tags=["patients"])
 
 
 @router.post("", response_model=schema.PatientOut)
 def create_patient(
     payload: schema.PatientCreate,
-    db: Session = Depends(get_db_session),
-    user: User = Depends(get_current_user),
+    db: HPDbSession
 ):
-    return PatientService.create_patient(db, user.id, payload)
+    return PatientService.create_patient_profile(db, payload)
 
 @router.get("", response_model=list[schema.PatientOut])
 def list_patients(db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
@@ -29,7 +28,7 @@ def list_patients(db: Session = Depends(get_db_session), user: User = Depends(ge
 
 
 @router.get("/{patient_id}", response_model=schema.PatientOut)
-def get_patient(patient_id: str, db: Session = Depends(get_db_session)):
+def get_patient(patient_id: str, db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
     return PatientService.get_by_id(db, patient_id)
 
 
@@ -38,6 +37,7 @@ def add_patient_file(
     patient_id: str,
     payload: schema.PatientFileCreate,
     db: Session = Depends(get_db_session),
+    user: User = Depends(get_current_user),
 ):
     return DocumentationService.attach_document(
         db, patient_id, payload.filename, payload.content_text
@@ -45,7 +45,7 @@ def add_patient_file(
 
 
 @router.get("/{patient_id}/files", response_model=list[schema.PatientFileOut])
-def list_patient_files(patient_id: str, db: Session = Depends(get_db_session)):
+def list_patient_files(patient_id: str, db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
     return DocumentationService.list_documents(db, patient_id)
 
 
@@ -70,7 +70,7 @@ def list_history(
     return PatientService.list_history(db, patient_id, kind=kind)
 
 @router.get("/{patient_id}/visits", response_model=list[schema.PatientHistoryOut])
-def list_visits(patient_id: str, db: Session = Depends(get_db_session)):
+def list_visits(patient_id: str, db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
     return PatientService.list_history(db, patient_id, kind="visit")
 
 
@@ -88,9 +88,16 @@ def patient_clinical_chat(
 @router.get("/{patient_id}/context")
 def get_patient_context(
     patient_id: str,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    user: User = Depends(get_current_user),
 ):
     """Return the PatientContext as built from the patient's history records."""
     PatientService.get_by_id(db, patient_id)  # authorization check
     ctx = PatientService.build_patient_context(patient_id, db)
     return ctx.model_dump()
+
+@router.delete("/patients")
+def delete_all_patients(db: Session = Depends(get_db_session)):
+    """Dangerous endpoint to delete all patient records - for testing purposes."""
+    PatientService.delete_all_patients(db)
+    return {"detail": "All patients deleted"}

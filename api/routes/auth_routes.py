@@ -5,11 +5,16 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends
 
 import models.schemas as schemas
-from api.auth import CurrentUser, HPDbSession, get_all_users, get_current_user, sign_in
+from api.auth import CurrentUser, HPDbSession, get_all_users, get_current_user, register_user, sign_in
 from api.models import User
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+@router.post("/register", response_model=dict[str, str])
+def register(payload: schemas.RegisterRequest, db: HPDbSession) -> dict[str, str]:
+    user = register_user(db, user_dto=payload)
+    return {"id": user.id}
 
 @router.post("/login", response_model=schemas.AccessTokenResponse)
 def login(payload: schemas.LoginRequest, db: HPDbSession) -> dict[str, str]:

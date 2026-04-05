@@ -104,7 +104,11 @@ def __get_or_create_dev_user__(
     ), skip_verification=True)
         
     if role == "patient":
-        PatientService.create_patient_profile(db, user.id, user, dob=dob, sex=sex)
+        PatientService.create_patient_profile(db, PatientCreate(
+            user_id=user.id,
+            dob=dob,
+            sex=sex or 'male'
+        ))
     elif role == "doctor":
         staff = Staff(user_id=user.id, role="doctor")
         db.add(staff)
