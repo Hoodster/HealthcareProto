@@ -7,7 +7,7 @@ from alembic import context
 
 from api.config import get_database_connection_url
 from api.db import Base
-from api.models import APP_SCHEMA_NAME
+from api.models import APP_SCHEMA_NAME, MIMIC_SCHEMA_NAME
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -25,7 +25,7 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
-
+SCHEMAS = [APP_SCHEMA_NAME, MIMIC_SCHEMA_NAME]
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -54,8 +54,8 @@ def run_migrations_offline() -> None:
 def include_object(object, _0, type_, _1, _2):
     """Filter to only include tables from the app schema."""
     if type_ == "table":
-        return object.schema == APP_SCHEMA_NAME
-    return True
+        return object.schema in SCHEMAS
+    return True 
 
 
 def run_migrations_online() -> None:
@@ -71,7 +71,8 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {APP_SCHEMA_NAME}"))
+        for schema in SCHEMAS:
+            connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
         connection.commit()
         
         context.configure(
