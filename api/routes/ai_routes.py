@@ -13,3 +13,9 @@ def list_models():
     service = AIModelService()
     return service.list_models()
 
+
+@router.post("/chat")
+def chat(message: str):
+    service = AIModelService()
+    return service.chat(message)
+

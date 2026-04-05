@@ -3,11 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from api.benchmarks.benchmark_runner import Mode
+from api.db import get_db_session
 from api.services.mimic_service import get_heart_patients, get_all_patients, build_mimic_patient_context
-import models.schemas as schemas
-from api.services.dummy_service import DummyService
-from api.auth import get_db
 
 
 router = APIRouter(prefix="/mimic", tags=["mimic"])
@@ -15,13 +12,13 @@ router = APIRouter(prefix="/mimic", tags=["mimic"])
 
 @router.post("/test")
 def create_chat(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
 ):
     return get_all_patients(db)
 
 @router.get("")
 def get_mimic(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
     subject_id: int | None = None,
     with_icu_stay: bool = True
 ):
@@ -32,7 +29,7 @@ def get_mimic(
 def get_mimic_patient_context(
     subject_id: int,
     hadm_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
 ):
     """Build and return the PatientContext derived from MIMIC-III data for a given admission."""
     ctx = build_mimic_patient_context(subject_id, hadm_id, db)
@@ -43,7 +40,7 @@ def get_mimic_patient_context(
 def run_mimic_benchmark(
     n_patients: int = Query(default=20, ge=1, le=200),
     modes: list[str] = Query(default=["expert_only", "llm_only", "full_pipeline"]),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_session),
 ):
     """
     Run A/B/C benchmark on real MIMIC-III AFib patients.

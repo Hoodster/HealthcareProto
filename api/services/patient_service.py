@@ -47,24 +47,21 @@ class PatientService:
         return list(db.execute(stmt).scalars().all())
 
     @staticmethod
-    def get_by_id(db: Session, patient_id: str, user_id: str) -> Patient:
+    def get_by_id(db: Session, patient_id: str) -> Patient:
         patient = db.get(Patient, patient_id)
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
-        if patient.user_id != user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
         return patient
 
     @staticmethod
     def add_history_record(
         db: Session,
-        user_id: str,
         patient_id: str,
         kind: str,
         note: str,
         occurred_at: datetime | None = None,
     ) -> PatientHistoryEntry:
-        PatientService.get_by_id(db, patient_id, user_id)
+        PatientService.get_by_id(db, patient_id)
 
         entry = PatientHistoryEntry(
             patient_id=patient_id,
@@ -81,12 +78,11 @@ class PatientService:
     @staticmethod
     def list_history(
         db: Session,
-        user_id: str,
         patient_id: str,
         *,
         kind: str | None = None,
     ) -> list[PatientHistoryEntry]:
-        PatientService.get_by_id(db, patient_id, user_id)
+        PatientService.get_by_id(db, patient_id)
 
         stmt = select(PatientHistoryEntry).where(
             PatientHistoryEntry.patient_id == patient_id
@@ -101,8 +97,8 @@ class PatientService:
         return list(db.execute(stmt).scalars().all())
 
     @staticmethod
-    def summarize_patient_profile(db: Session, patient_id: str, user_id: str) -> str:
-        patient = PatientService.get_by_id(db, patient_id, user_id)
+    def summarize_patient_profile(db: Session, patient_id: str) -> str:
+        patient = PatientService.get_by_id(db, patient_id)
 
         files = db.query(PatientFile).filter(
             PatientFile.patient_id == patient_id
@@ -117,7 +113,7 @@ class PatientService:
 
         profile_text = (
             f"Patient {patient.first_name} {patient.last_name}, "
-            f"born on {patient.dob}, sex: {patient.sex}\n\n"
+            f"age {date.today().year - patient.dob.year if patient.dob else 'unknown'}, sex: {patient.sex}\n\n"
         )
 
         if files:
@@ -132,21 +128,8 @@ class PatientService:
                 note_preview = entry.note[:100] if entry.note else ""
                 profile_text += f"- [{entry.occurred_at}] {entry.kind}: {note_preview}...\n"
 
-        summary = AIModelService().chat(
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a medical AI assistant. Summarize patient information concisely.",
-                },
-                {
-                    "role": "user",
-                    "content": f"Summarize the following patient information:\n\n{profile_text}",
-                },
-            ],
-            temperature=0.2,
-            max_tokens=500,
-        )
-        return summary
+        ai_service = AIModelService()
+        return ai_service.summarize(profile_text)
 
     @staticmethod
     def build_patient_context(patient_id: str, db: Session):
@@ -234,12 +217,11 @@ class DocumentationService:
     @staticmethod
     def attach_document(
         db: Session,
-        user_id: str,
         patient_id: str,
         filename: str,
         content_text: str,
     ) -> PatientFile:
-        PatientService.get_by_id(db, patient_id, user_id)
+        PatientService.get_by_id(db, patient_id)
 
         doc = PatientFile(
             patient_id=patient_id,
@@ -255,10 +237,9 @@ class DocumentationService:
     @staticmethod
     def list_documents(
         db: Session,
-        user_id: str,
         patient_id: str,
     ) -> list[PatientFile]:
-        PatientService.get_by_id(db, patient_id, user_id)
+        PatientService.get_by_id(db, patient_id)
 
         stmt = select(PatientFile).where(PatientFile.patient_id == patient_id).order_by(
             PatientFile.created_at.desc()
@@ -268,11 +249,10 @@ class DocumentationService:
     @staticmethod
     def get_document(
         db: Session,
-        user_id: str,
         patient_id: str,
         document_id: str,
     ) -> PatientFile:
-        PatientService.get_by_id(db, patient_id, user_id)
+        PatientService.get_by_id(db, patient_id)
 
         doc = db.get(PatientFile, document_id)
         if not doc or doc.patient_id != patient_id:

@@ -1,43 +1,69 @@
 from __future__ import annotations
 
-from cProfile import Profile
+import datetime
 import os
 import secrets
+import token
 from typing import Annotated
+import random
 
+from dns.dnssecalgs import algorithms
 from fastapi import Depends, Header
 import passlib.context
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from api import db
 from api.db import get_db_session
 from api.models import User
 
+from jwt import JWT, jwk_from_dict
 
-pwd_context = passlib.context.CryptContext(schemes=["bcrypt"], deprecated="auto")
+EXAMPLE_SECRET = "aaa2137bbb"
+
+def create_jwt_token(user_id: str):
+    now = datetime.datetime.now(datetime.UTC)
+    payload = {
+        "sub": str(user_id),
+        "iat": now,
+        "exp": now + datetime.timedelta(hours=1000)
+    }
+    
+    key = jwk_from_dict({"kty": "oct", "k": EXAMPLE_SECRET})
+    return JWT().encode(payload, key, alg="HS256")
+
+def decode_jwt_token(token: str):
+    if not token.startswith("Bearer "):
+        raise RuntimeError("Invalid authorization header")
+    
+    token_code = token.split(" ")[1]
+    key = jwk_from_dict({"kty": "oct", "k": EXAMPLE_SECRET})
+    try:
+        payload = JWT().decode(token_code, key, algorithms={'HS256'})
+    except Exception as e:
+        raise RuntimeError("Invalid token") from e
+        
+    user_id = payload.get("sub")
+    if not user_id:
+        raise RuntimeError("Could not retrieve userid")
+    return user_id
 
 
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
 
-
-def new_token() -> str:
-    return secrets.token_hex(24)
-
-
-def get_db():
-    with get_db_session() as db:
-        yield db
-
-
-def _get_or_create_dev_user(db: Session, *, email: str, password: str, full_name: str | None, role: str | None) -> User:
+def __get_or_create_dev_user__(
+    db: Session, 
+    *, 
+    email: str, 
+    full_name: str, 
+    role: str,
+    sex: str) -> User:
     existing = db.execute(select(User).where(User.email == email)).scalars().first()
     if existing:
         db.commit()
         db.refresh(existing)
         return existing
 
-    user = User(email=email, password_hash=hash_password(password), api_token=new_token())
+    user = User(email=email, sex=sex, full_name=full_name)
     db.add(user)
     db.flush()
     db.commit()
@@ -45,30 +71,47 @@ def _get_or_create_dev_user(db: Session, *, email: str, password: str, full_name
     return user
 
 
-def _dev_user_from_role(db: Session, role_key: str | None) -> User:
-    key = (role_key or os.getenv("DEV_ROLE") or "clinician").strip().lower()
+def seed_users(db: Session):
 
-    if key in {"admin", "administrator"}:
-        return _get_or_create_dev_user(
-            db,
-            email=os.getenv("DEV_ADMIN_EMAIL", 'admin@local'),
-            password=os.getenv("DEV_ADMIN_PASSWORD", "admin"),
-            full_name=os.getenv("DEV_ADMIN_NAME", "Admin"),
-            role="admin",
-        )
-
-    return _get_or_create_dev_user(
+    __get_or_create_dev_user__(
         db,
-        email=os.getenv("DEV_CLINICIAN_EMAIL", "clinician@local"),
-        password=os.getenv("DEV_CLINICIAN_PASSWORD", "clinician"),
-        full_name=os.getenv("DEV_CLINICIAN_NAME", "Clinician"),
-        role="clinician",
+        email=os.getenv("DEV_ADMIN_EMAIL", 'admin@local'),
+        full_name=os.getenv("DEV_ADMIN_NAME", "Admin"),
+        role="admin",
+        sex="M"
+    )
+    __get_or_create_dev_user__(
+        db,
+        email=os.getenv("DEV_CLINICIAN_EMAIL", "doctor@local"),
+        full_name=os.getenv("DEV_CLINICIAN_NAME", "doctor"),
+        role="doctor",
+        sex="F"
     )
 
+def sign_in(
+    db: Annotated[Session, Depends(get_db_session)],
+    email: str = Header(...),
+):
+    user = db.execute(select(User).where(User.email == email)).scalars().first()
+    if not user:
+        raise RuntimeError("User not found")
+    token = create_jwt_token(user.id)
+    return {"access_token": token, "token_type": "bearer"}
 
 def get_current_user(
-    db: Annotated[Session, Depends(get_db)],
-    dev_role: Annotated[str | None, Header(alias="X-Dev-Role")] = None,
+    db: Annotated[Session, Depends(get_db_session)],
+    header: Annotated[str, Header(..., alias="Authorization")]
 ) -> User:
-    return _dev_user_from_role(db, dev_role)
+    if not header.startswith("Bearer "):
+        raise RuntimeError("Invalid authorization header")
+    token = header.split(" ")[1]
+    user = User()
+    try:
+        payload = decode_jwt_token(token)
+        user_id = payload.get("sub")
+        user = db.execute(select(User).where(User.id == user_id)).scalars().first() or User()
+    except Exception as e:
+        raise RuntimeError("Invalid token") from e
+    
+    return user
 

@@ -20,9 +20,8 @@ idna==3.11
 isodate==0.7.2
 jiter==0.13.0
 jwt==1.4.0
-openai==2.24.0
+openai==2.30.0
 passlib==1.7.4
-psycopg2==2.9.11
 psycopg2-binary==2.9.11
 pycparser==3.0
 pydantic==2.12.5

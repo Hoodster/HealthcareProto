@@ -3,5 +3,6 @@
     "python.analysis.autoImportCompletions": true,
     "python.analysis.typeCheckingMode": "standard",
     "python.analysis.findRefsInBackgroundThread": true,
-    "python.analysis.referencesCodeLens": true
+    "python.analysis.referencesCodeLens": true,
+    "python-envs.defaultEnvManager": "ms-python.python:venv"
 }
