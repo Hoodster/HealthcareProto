@@ -41,9 +41,7 @@ class PatientService:
 
     @staticmethod
     def list_patients(db: Session, user_id: str) -> list[Patient]:
-        stmt = select(Patient).where(Patient.user_id == user_id).order_by(
-            Patient.created_at.desc()
-        )
+        stmt = select(Patient).where(Patient.user_id == user_id)
         return list(db.execute(stmt).scalars().all())
 
     @staticmethod

@@ -25,16 +25,17 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, futu
 
 def init_db():
     """Initialize database - create schema and tables if they don't exist."""
-    from api.models import APP_SCHEMA_NAME  # Import here to avoid circular imports
+    from api.models import APP_SCHEMA_NAME, MIMIC_SCHEMA_NAME
     
-    if not engine.url.drivername.startswith("sqlite"):
-        with engine.connect() as conn:
-            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {APP_SCHEMA_NAME}"))
-            conn.commit()
+    if engine.url.drivername.startswith("sqlite"):
+        Base.metadata.create_all(bind=engine)
+        return
     
-    import api.models  # noqa: F401 
-    Base.metadata.create_all(bind=engine)
-    
+    with engine.connect() as conn:
+        conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {APP_SCHEMA_NAME}"))
+        conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {MIMIC_SCHEMA_NAME}"))
+        conn.commit()
+
 def get_db_session() -> Iterator[Session]:
     db = SessionLocal()
     try:
