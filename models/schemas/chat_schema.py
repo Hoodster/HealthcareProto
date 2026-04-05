@@ -6,42 +6,16 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field
 
 
-class ChatCreate(BaseModel):
-    title: str | None = None
-
-
-class ChatOut(BaseModel):
-    id: int
-    title: str | None
-    created_at: dt.datetime
-
-    class Config:
-        from_attributes = True
-
-
-class MessageCreate(BaseModel):
+class MessageIn(BaseModel):
     role: Literal["user", "assistant", "system"] = "user"
     content: str
 
 
 class MessageOut(BaseModel):
-    id: int
     role: str
     content: str
     created_at: dt.datetime
-
-    class Config:
-        from_attributes = True
-
-
-class AIChatRequest(BaseModel):
-    message: str = Field(..., description="User message to send to the AI")
-
-
-class AIChatResponse(BaseModel):
-    assistant_message: str
-    model: str
-
+    
 
 class ClinicalChatRequest(BaseModel):
     message: str = Field(..., description="Clinical question about the patient")

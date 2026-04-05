@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
-
+from typing import Any
 from fastapi import APIRouter, Depends
 
 import models.schemas as schemas
-from api.auth import CurrentUser, HPDbSession, get_all_users, get_current_user, register_user, sign_in
-from api.models import User
+from api.auth import CurrentUser, HPDbSession, get_all_users, register_user, sign_in
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])

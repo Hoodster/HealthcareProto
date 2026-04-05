@@ -22,6 +22,7 @@ def create_patient(
 ):
     return PatientService.create_patient_profile(db, payload)
 
+
 @router.get("", response_model=list[schema.PatientOut])
 def list_patients(db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
     return PatientService.list_patients(db, user.id)
@@ -69,6 +70,7 @@ def list_history(
 ):
     return PatientService.list_history(db, patient_id, kind=kind)
 
+
 @router.get("/{patient_id}/visits", response_model=list[schema.PatientHistoryOut])
 def list_visits(patient_id: str, db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
     return PatientService.list_history(db, patient_id, kind="visit")
@@ -95,6 +97,7 @@ def get_patient_context(
     PatientService.get_by_id(db, patient_id)  # authorization check
     ctx = PatientService.build_patient_context(patient_id, db)
     return ctx.model_dump()
+
 
 @router.delete("/patients")
 def delete_all_patients(db: Session = Depends(get_db_session)):
