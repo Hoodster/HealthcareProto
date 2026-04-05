@@ -23,22 +23,18 @@ def _create_engine():
 engine = _create_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
-
-def init_db() -> None:
-    from api.models import APP_SCHEMA_NAME
-
-    if engine.dialect.name == "postgresql":
-        with engine.begin() as connection:
-            connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{APP_SCHEMA_NAME}"'))
-
-    app_tables = [
-        table
-        for table in Base.metadata.tables.values()
-        if table.schema in (None, APP_SCHEMA_NAME)
-    ]
-    Base.metadata.create_all(bind=engine, tables=app_tables)
-
-
+def init_db():
+    """Initialize database - create schema and tables if they don't exist."""
+    from api.models import APP_SCHEMA_NAME  # Import here to avoid circular imports
+    
+    if not engine.url.drivername.startswith("sqlite"):
+        with engine.connect() as conn:
+            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {APP_SCHEMA_NAME}"))
+            conn.commit()
+    
+    import api.models  # noqa: F401 
+    Base.metadata.create_all(bind=engine)
+    
 def get_db_session() -> Iterator[Session]:
     db = SessionLocal()
     try:

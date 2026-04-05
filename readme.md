@@ -10,11 +10,11 @@ Backend service for Healthcare Prototype App
 ## Project Layout
 
 ```text
-alembic/          Database migrations
+alembic/          Database migrations  
 api/              FastAPI app, routes, services, SQLAlchemy models
 expert_system/    Rule engine and clinical rules
 models/           Pydantic schemas shared across the app
-scripts/          Scripts
+scripts/          Database initialization and utility scripts
 ```
 
 ## Start here - local configuration
@@ -43,15 +43,25 @@ docker compose up -d [ | postgres | backend]
 ```
 
 ## Database
-Based on `DB_URL` value app determines target between SQLLite (locally) and postgreSQL (locally + web)
-For migrations project uses **alembic**.
+Based on `DB_URL` value app determines target between SQLite (locally) and PostgreSQL (locally + web).
+
+Database schema is managed by **Alembic** for migrations.
 
 ### Migrations
-To get newest schema to existing database or to adjust after code change run
+When you make changes to models in `api/models.py`, generate and apply a migration:
 
 ```bash
-alembic revision --autogenerate -m "message" # skip for update only
+# Generate migration from model changes
+alembic revision --autogenerate -m "description of changes"
+
+# Apply migration to database
 alembic upgrade head
+
+# Check current database revision
+alembic current
+
+# Rollback one migration
+alembic downgrade -1
 ```
 
 SQLite database is saved in /.output folder by default. You can change it in `.env`

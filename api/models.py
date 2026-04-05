@@ -22,7 +22,7 @@ class PatientDiagnosis(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    patient_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.app_patients.id"), index=True, nullable=False)
+    patient_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.patient_profiles.id"), index=True, nullable=False)
     diagnosis_code_icd: Mapped[str] = mapped_column(String(20), nullable=False, index=True)  # ICD-10 code
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
 
@@ -68,7 +68,6 @@ class Staff(Base):
     id: Mapped[str] = mapped_column(String, default=lambda: str(uuid4()), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), unique=True, index=True, nullable=False)
     role: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
 
     user: Mapped[User] = relationship(
         back_populates="staff",
@@ -78,7 +77,7 @@ class Staff(Base):
 
 class Patient(Base):
     """Patient profile (§2 ust.1 - dokumentacja indywidualna)"""
-    __tablename__ = "app_patients"
+    __tablename__ = "patient_profiles"
     __table_args__ = (
         UniqueConstraint("user_id", "dob", "sex", name="uq_patient_user_identity"),
         {'schema': APP_SCHEMA_NAME}
@@ -87,7 +86,6 @@ class Patient(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), index=True, nullable=False)
     dob: Mapped[date | None] = mapped_column(Date, nullable=True)
     sex: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
 
     user: Mapped[User] = relationship(
         back_populates="patient",
@@ -111,7 +109,7 @@ class PatientFile(Base):
     )
 
     id: Mapped[str] = mapped_column(String, default=lambda: str(uuid4()), primary_key=True)
-    patient_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.app_patients.id"), index=True, nullable=False)
+    patient_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.patient_profiles.id"), index=True, nullable=False)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     content_text: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
@@ -119,7 +117,7 @@ class PatientFile(Base):
     patient: Mapped[Patient] = relationship(back_populates="files")
 
 
-class PatientHistoryEntry(Base):
+class PatientHistoryEntry(Base): 
     """Patient medical history (§2 ust.3 pkt 1,2 - historia zdrowia i choroby)"""
     __tablename__ = "patient_history"
     __table_args__ = (
@@ -129,7 +127,7 @@ class PatientHistoryEntry(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    patient_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.app_patients.id"), index=True, nullable=False)
+    patient_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.patient_profiles.id"), index=True, nullable=False)
     kind: Mapped[EntryKinds] = mapped_column(String(64), nullable=False, index=True)
     note: Mapped[str] = mapped_column(Text, nullable=False)
     occurred_at: Mapped[dt | None] = mapped_column(DateTime, nullable=True, index=True)
@@ -149,7 +147,7 @@ class MedDocument(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), index=True, nullable=False)
-    patient_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.app_patients.id"), index=True, nullable=False)
+    patient_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.patient_profiles.id"), index=True, nullable=False)
 
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     document_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
