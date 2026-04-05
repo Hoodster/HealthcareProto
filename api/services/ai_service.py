@@ -8,7 +8,7 @@ from api.config import get_openai_api_key
 AIServiceProvider = Literal['ChatGPT']
 
 class AIModelService:
-    def __init__(self, ai_provider: Optional[AIServiceProvider] = 'ChatGPT', model: Optional[str] = 'gpt-4o') -> None:
+    def __init__(self, ai_provider: Optional[AIServiceProvider] = 'ChatGPT', model: Optional[str] = 'gpt-5.2') -> None:
         api_key = get_openai_api_key()
         if not api_key:
             raise RuntimeError(
