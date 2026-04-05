@@ -11,11 +11,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from api.db import get_db_session
-from api.models import Patient, Staff, User
+from api.models import Staff, User
 
 from jwt import JWT, jwk_from_dict
 
+from api.services.patient_service import PatientService
+from models import schemas
 from models.schemas.auth_schema import AccessTokenResponse, LoginOut
+from models.schemas.patient_schema import PatientCreate
 
 EXAMPLE_SECRET = "aaa2137bbb"
 bearer_scheme = HTTPBearer()
@@ -59,7 +62,7 @@ def __get_or_create_dev_user__(
     password: str,
     full_name: str, 
     role: str,
-    sex: Optional[str] = None) -> User:
+    sex: Optional[schemas.PatientSex] = None) -> User:
     
     existing = db.execute(
         select(User).where(User.email == email)
@@ -76,16 +79,15 @@ def __get_or_create_dev_user__(
     )
     db.add(user)
     db.flush()
+    
 
     if role == "patient":
         if not sex:
-            raise ValueError("Sex must be provided for patient users")
-        patient = Patient(
-            user_id=user.id,
+            raise ValueError("Gender must be specified for patient role")
+        PatientService.create_patient_profile(db, user.id, PatientCreate(
             sex=sex,
             dob=datetime.date(1960, 1, 1)
-        )
-        db.add(patient)
+        ))
     elif role in ("doctor", "admin"):
         staff = Staff(
             user_id=user.id,
@@ -121,7 +123,7 @@ def seed_users(db: Session):
         password=os.getenv("DEV_PATIENT_PASSWORD", "patient"),
         full_name=os.getenv("DEV_PATIENT_NAME", "patient"),
         role="patient",
-        sex="M"
+        sex="male"
     )
     
 def get_all_users(db: HPDbSession) -> list[LoginOut]:

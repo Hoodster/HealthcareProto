@@ -21,7 +21,7 @@ class ChatService:
 
     @staticmethod
     def list_chats(db: Session, user_id: str) -> list[ChatMessage]:
-        stmt = select(ChatMessage).where(ChatMessage == user_id).order_by(ChatMessage.created_at.desc())
+        stmt = select(ChatMessage).where(ChatMessage.user_id == user_id).order_by(ChatMessage.created_at.desc())
         return list(db.execute(stmt).scalars().all())
 
     @staticmethod

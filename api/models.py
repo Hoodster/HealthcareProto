@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime as dt, timezone, date
+from operator import index
 from typing import Literal
 from uuid import uuid4
 
@@ -21,7 +22,7 @@ class PatientDiagnosis(Base):
         {'schema': APP_SCHEMA_NAME}
     )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    diagnosis_id: Mapped[str] = mapped_column(String, primary_key=True)
     patient_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.patient_profiles.id"), index=True, nullable=False)
     diagnosis_code_icd: Mapped[str] = mapped_column(String(20), nullable=False, index=True)  # ICD-10 code
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
@@ -31,8 +32,8 @@ class ChatMessage(Base):
     __tablename__ = "chat"
     __table_args__ = {'schema': APP_SCHEMA_NAME}
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    chat_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    session_id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
     sender_role: Mapped[str] = mapped_column(String(32), nullable=False)  # user | assistant | system
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
@@ -48,7 +49,12 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     api_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
-
+    messages: Mapped[list[ChatMessage]] = relationship(
+        backref="user",
+        cascade="all, delete-orphan",
+        foreign_keys="ChatMessage.user_id",
+        order_by="ChatMessage.created_at.asc()"
+    )
     patient: Mapped["Patient | None"] = relationship(
         back_populates="user",
         foreign_keys="Patient.user_id",

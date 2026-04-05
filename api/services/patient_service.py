@@ -22,15 +22,13 @@ _ECG_KINDS = {'diagnostic_ecg', 'diagnostic_holter'}
 
 class PatientService:
     @staticmethod
-    def create_patient(
+    def create_patient_profile(
         db: Session,
         user_id: str,
         patient_dto: schemas.PatientCreate,
     ) -> Patient:
         patient = Patient(
             user_id=user_id,
-            first_name=patient_dto.first_name,
-            last_name=patient_dto.last_name,
             dob=patient_dto.dob,
             sex=patient_dto.sex,
         )
@@ -108,9 +106,9 @@ class PatientService:
             .limit(50)
             .all()
         )
-
+        
         profile_text = (
-            f"Patient {patient.first_name} {patient.last_name}, "
+            f"Patient data:"
             f"age {date.today().year - patient.dob.year if patient.dob else 'unknown'}, sex: {patient.sex}\n\n"
         )
 

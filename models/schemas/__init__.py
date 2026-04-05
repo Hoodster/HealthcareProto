@@ -24,6 +24,7 @@ from .patient_schema import (
     PatientHistoryCreate,
     PatientHistoryOut,
     PatientOut,
+    PatientSex
 )
 from .profile_schema import *  # noqa: F401, F403
 
@@ -52,4 +53,5 @@ __all__ = [
     "PatientFileOut",
     "PatientHistoryCreate",
     "PatientHistoryOut",
+    "PatientSex",
 ]
