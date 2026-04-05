@@ -15,6 +15,8 @@ from api.models import Patient, Staff, User
 
 from jwt import JWT, jwk_from_dict
 
+from models.schemas.auth_schema import AccessTokenResponse
+
 EXAMPLE_SECRET = "aaa2137bbb"
 bearer_scheme = HTTPBearer()
 
@@ -25,8 +27,8 @@ def create_jwt_token(user_id: str):
     now = datetime.datetime.now(datetime.UTC)
     payload = {
         "sub": str(user_id),
-        "iat": now,
-        "exp": now + datetime.timedelta(hours=1000)
+        "iat": int(now.timestamp()),
+        "exp": int((now + datetime.timedelta(hours=1000)).timestamp())
     }
     
     key = jwk_from_dict({"kty": "oct", "k": EXAMPLE_SECRET})
@@ -59,30 +61,9 @@ def __get_or_create_dev_user__(
     role: str,
     sex: Optional[str] = None) -> User:
     
-    def create_patient_profile(user):
-        if not sex:
-            raise ValueError("An information about sex must be provided for patient users")
-        
-        patient = Patient(
-            user_id=user.id,
-            sex=sex,
-            dob=datetime)
-        user = User(**user, 
-                    patient=patient)   
-                 
-    def create_staff_profile(user):
-        staff = Staff(
-            user_id=user.id, 
-            role=role,
-            )
-        user = User(**user, 
-                    staff=staff)
-    
     existing = db.execute(
-        select(User)
-        .join(User.staff)
-        .join(User.patient)
-        .where(User.email == email)).scalars().first()
+        select(User).where(User.email == email)
+    ).scalars().first()
     
     if existing:
         return existing
@@ -93,15 +74,28 @@ def __get_or_create_dev_user__(
         password_hash=password,
         api_token=secrets.token_hex(24),
     )
-    
-    if role == "patient":
-        create_patient_profile(user)
-    elif role in ("doctor", "admin"):
-        create_staff_profile(user)
     db.add(user)
     db.flush()
+
+    if role == "patient":
+        if not sex:
+            raise ValueError("Sex must be provided for patient users")
+        patient = Patient(
+            user_id=user.id,
+            sex=sex,
+            dob=datetime.date(1960, 1, 1)
+        )
+        db.add(patient)
+    elif role in ("doctor", "admin"):
+        staff = Staff(
+            user_id=user.id,
+            role=role,
+        )
+        db.add(staff)
+    
     db.commit()
     db.refresh(user)
+    db.flush()
     return user
 
 
@@ -136,11 +130,17 @@ def sign_in(
     password: str
 ):
     seed_users(db)
-    user = db.execute(select(User).where(User.email == email and User.password_hash == password)).scalars().first()
+    user = db.execute(
+        select(User).where(User.email == email, User.password_hash == password)
+    ).scalars().first()
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     token = create_jwt_token(user.id)
-    return {"access_token": token, "token_type": "bearer"}
+    return AccessTokenResponse(
+        access_token=token,
+        token_type="Bearer",
+        expires_in=3600 * 1000
+    ).model_dump()
 
 def get_current_user(
     db: HPDbSession,
