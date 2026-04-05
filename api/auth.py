@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import datetime
+import email
+import email
 import os
 import secrets
 from typing import Annotated, Optional
@@ -25,6 +27,9 @@ bearer_scheme = HTTPBearer()
 
 HPDbSession = Annotated[Session, Depends(get_db_session)]
 HPBearerCredentials = Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)]
+
+def __retrieve_user_by_email__(db: Session, email: str) -> Optional[User]:
+    return db.execute(select(User).where(User.email == email)).scalars().first()
 
 def create_jwt_token(user_id: str):
     now = datetime.datetime.now(datetime.UTC)
@@ -54,6 +59,27 @@ def decode_jwt_token(token: str):
     return user_id
 
 
+def register_user(
+    db: Session,
+    user_dto: schemas.RegisterRequest,
+    skip_verification: bool = False
+) -> User:
+    
+    if not skip_verification:
+        existing = __retrieve_user_by_email__(db, user_dto.email)
+        if existing:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already exists")
+
+    user = User(
+        email=user_dto.email,
+        full_name=user_dto.full_name,
+        password_hash=user_dto.password,
+        api_token=secrets.token_hex(24),
+    )
+    db.add(user)
+    db.flush()
+    return user
+
 
 def __get_or_create_dev_user__(
     db: Session, 
@@ -62,42 +88,28 @@ def __get_or_create_dev_user__(
     password: str,
     full_name: str, 
     role: str,
+    dob: Optional[datetime.date] = None,
     sex: Optional[schemas.PatientSex] = None) -> User:
     
-    existing = db.execute(
-        select(User).where(User.email == email)
-    ).scalars().first()
+    existing = __retrieve_user_by_email__(db, email)
     
     if existing:
         return existing
-
-    user = User(
+    
+    user = register_user(db, schemas.RegisterRequest(
         email=email,
+        password=password,
         full_name=full_name,
-        password_hash=password,
-        api_token=secrets.token_hex(24),
-    )
-    db.add(user)
-    db.flush()
-    
-
+        role=role
+    ), skip_verification=True)
+        
     if role == "patient":
-        if not sex:
-            raise ValueError("Gender must be specified for patient role")
-        PatientService.create_patient_profile(db, user.id, PatientCreate(
-            sex=sex,
-            dob=datetime.date(1960, 1, 1)
-        ))
-    elif role in ("doctor", "admin"):
-        staff = Staff(
-            user_id=user.id,
-            role=role,
-        )
+        PatientService.create_patient_profile(db, user.id, user, dob=dob, sex=sex)
+    elif role == "doctor":
+        staff = Staff(user_id=user.id, role="doctor")
         db.add(staff)
+        db.commit()
     
-    db.commit()
-    db.refresh(user)
-    db.flush()
     return user
 
 

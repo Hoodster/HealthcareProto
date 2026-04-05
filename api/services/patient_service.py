@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import models.schemas as schemas
-from api.models import Patient, PatientFile, PatientHistoryEntry
+from api.models import Patient, PatientFile, PatientHistoryEntry, User
 from api.services.ai_service import AIModelService
 
 _QTC_RE = re.compile(r'\bqtc\s*[=:]\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
@@ -25,12 +25,14 @@ class PatientService:
     def create_patient_profile(
         db: Session,
         user_id: str,
-        patient_dto: schemas.PatientCreate,
+        patient_dto: User,
+        dob: date | None = None,
+        sex: schemas.PatientSex | None = None,
     ) -> Patient:
         patient = Patient(
             user_id=user_id,
-            dob=patient_dto.dob,
-            sex=patient_dto.sex,
+            dob=dob,
+            sex=sex,
         )
         db.add(patient)
         db.commit()

@@ -33,10 +33,12 @@ class ChatMessage(Base):
     __table_args__ = {'schema': APP_SCHEMA_NAME}
 
     session_id: Mapped[str] = mapped_column(String, primary_key=True)
-    user_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), index=True, nullable=False)
     sender_role: Mapped[str] = mapped_column(String(32), nullable=False)  # user | assistant | system
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
+
+    user: Mapped["User"] = relationship(back_populates="messages")
 
 
 class User(Base):
@@ -49,10 +51,10 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     api_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
-    messages: Mapped[list[ChatMessage]] = relationship(
-        backref="user",
+
+    messages: Mapped[list["ChatMessage"]] = relationship(
+        back_populates="user",
         cascade="all, delete-orphan",
-        foreign_keys="ChatMessage.user_id",
         order_by="ChatMessage.created_at.asc()"
     )
     patient: Mapped["Patient | None"] = relationship(
