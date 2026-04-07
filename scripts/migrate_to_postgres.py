@@ -130,10 +130,10 @@ def verify_migration(sqlite_engine, pg_engine):
     table_mapping = {
         'users': 'users',
         'staff_profiles': 'staff_profiles',
-        'patients': 'app_patients',  # Renamed in PostgreSQL
+        'patients': 'patient_profiles',
         'patient_files': 'patient_files',
         'patient_history': 'patient_history',
-        'chats': 'chats',
+        'chat_message': 'chats',
         'messages': 'messages',
         'med_documents': 'med_documents'
     }

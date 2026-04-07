@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 
@@ -28,9 +28,11 @@ def list_patients(db: Session = Depends(get_db_session), user: User = Depends(ge
 
 
 @router.get("/{patient_id}", response_model=schema.PatientOut)
-def get_patient(patient_id: str, db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
-    return PatientService.get_by_id(db, patient_id)
-
+def get_patient(patient_id: str, db: HPDbSession, user: HPCurrentUser):
+    patient = PatientService.get_by_id(db, patient_id)
+    if not user.staff or patient.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this patient")
+    return patient
 
 # @router.post("/{patient_id}/files", response_model=schema.PatientFileOut)
 # def add_patient_file(
