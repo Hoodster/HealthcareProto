@@ -7,16 +7,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from api.ai_models import ChatGPTAIModel
-from api.auth import CurrentUser, HPDbSession
+from api.auth import HPDbSession
 import models.schemas as schemas
-from api.models import ChatMessage
+from api.models import ChatMessage, User
 
 class ChatService:
     
     @staticmethod
-    def send_chat_message(db: HPDbSession, payload: schemas.MessageIn, current_user: Optional[CurrentUser] = None) -> ChatMessage:
+    def send_chat_message(db: HPDbSession, payload: schemas.MessageIn, current_user: Optional[User] = None) -> ChatMessage:
         if not payload.session_id:
-            stmt = select(ChatMessage.session_id).order_by(ChatMessage.session_id.desc()).limit(1)
+            stmt = select(ChatMessage.session_id).order_by(ChatMessage.created_at.desc()).limit(1)
             result = db.execute(stmt).scalar()
             payload.session_id = result or str(uuid4())
         
@@ -41,7 +41,7 @@ class ChatService:
 
     @staticmethod
     def list_chats(db: Session, user_id: str) -> list[Any]:
-        stmt = select(ChatMessage.session_id, ChatMessage.created_at).distinct(ChatMessage.session_id).order_by(ChatMessage.created_at.desc())
+        stmt = select(ChatMessage.session_id, ChatMessage.created_at).where(ChatMessage.user_id == user_id).distinct(ChatMessage.session_id).order_by(ChatMessage.created_at.desc())
         return list(db.execute(stmt).all())
 
     @staticmethod

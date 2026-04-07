@@ -4,7 +4,7 @@ from typing import Any
 from fastapi import APIRouter, Depends
 
 import models.schemas as schemas
-from api.auth import CurrentUser, HPDbSession, get_all_users, register_user, sign_in
+from api.auth import HPCurrentUser, HPDbSession, get_all_users, register_user, sign_in
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -24,7 +24,7 @@ def list_users(db: HPDbSession):
     return get_all_users(db)
 
 @router.get("/me")
-def me(user: CurrentUser) -> dict[str, Any]:
+def me(user: HPCurrentUser) -> dict[str, Any]:
     return {
         "id": user.id,
         "email": user.email,

@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from api.auth import HPCurrentUser, HPDbSession
 import models.schemas as schemas
 from api.models import Patient, PatientFile, PatientHistoryEntry, User
 from api.services.ai_service import AIModelService
@@ -208,8 +209,10 @@ class PatientService:
         )
         
     @staticmethod
-    def delete_all_patients(db: Session):
-        """Dangerous method to delete all patient records - for testing purposes."""
+    def delete_all_patients(db: Session, user: User | None = None):
+        """Delete all patient records"""
+        if not user or not user.staff or not user.staff.role == 'admin':
+            raise HTTPException(status_code=403, detail="Admin privileges required")
         db.query(Patient).delete()
         db.commit()
 
