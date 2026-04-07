@@ -19,19 +19,22 @@ class ChatService:
             stmt = select(ChatMessage.session_id).order_by(ChatMessage.created_at.desc()).limit(1)
             result = db.execute(stmt).scalar()
             payload.session_id = result or str(uuid4())
+            
+        current_user_id = current_user.id if current_user else None
         
         new_question = ChatMessage(
             sender_role="user", 
             content=payload.content, 
             session_id=payload.session_id, 
-            user_id=current_user.id if current_user else None)
+            user_id=current_user_id)
         db.add(new_question)
         
         ai_answer = ChatGPTAIModel().answer(payload.content)
         new_response = ChatMessage(
             sender_role="assistant", 
             content=ai_answer, 
-            session_id=payload.session_id
+            session_id=payload.session_id,
+            user_id=current_user_id
         )
         db.add(new_response)
         db.commit()
