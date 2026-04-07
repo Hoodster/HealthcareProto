@@ -22,4 +22,4 @@ def get_database_connection_url() -> str:
 
 
 def get_openai_api_key() -> str | None:
-    return os.getenv("OPENAI_API_KEY")
+    return os.getenv("API_OPENAI")

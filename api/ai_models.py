@@ -78,7 +78,7 @@ class ChatGPTAIModel(AIModel):
         api_key = get_openai_api_key()
         if not api_key:
             raise RuntimeError(
-                "OPENAI_API_KEY not set. Set OPENAI_API_KEY in the environment or in .env."
+                "API_OPENAI not set. Set API_OPENAI in the environment or in .env."
             )
         return OpenAI(api_key=api_key)
         
