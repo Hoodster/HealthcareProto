@@ -8,6 +8,7 @@ from .auth_schema import (
 from .chat_schema import (
     MessageIn,
     MessageOut,
+    UserChatItemOut,
     ChatInterface
 )
 from .patient_schema import (
@@ -31,6 +32,7 @@ __all__ = [
     # chat
     "MessageIn",
     "MessageOut",
+    "UserChatItemOut",
     "ChatInterface",
     # patient
     "PatientCreate",

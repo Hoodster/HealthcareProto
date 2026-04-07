@@ -17,7 +17,15 @@ class MessageOut(BaseModel):
     content: str
     created_at: dt.datetime
     session_id: str
-    
+
+
+class UserChatItemOut(BaseModel):
+    """Summary of a chat session for list"""
+    session_id: str
+    latest_message_at: dt.datetime
+
+
 class ChatInterface(BaseModel):
+    """Chat session details"""
     session_id: str
     messages: list[MessageOut]

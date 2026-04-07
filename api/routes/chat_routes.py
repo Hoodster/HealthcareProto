@@ -24,6 +24,7 @@ def send_chat_message(
     return ChatService.send_chat_message(payload=payload, current_user=user, db=db)
 
 
-@router.get("/chats", response_model=list[schemas.MessageOut])
+@router.get("", response_model=list[schemas.UserChatItemOut])
 def list_chats(user: User = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    """List all chat sessions for the current user."""
     return ChatService.list_chats(db=db, user_id=user.id)

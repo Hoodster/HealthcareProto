@@ -7,7 +7,6 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from api.auth import HPCurrentUser, HPDbSession
 import models.schemas as schemas
 from api.models import Patient, PatientFile, PatientHistoryEntry, User
 from api.services.ai_service import AIModelService

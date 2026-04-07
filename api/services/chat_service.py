@@ -40,9 +40,11 @@ class ChatService:
         return new_question
 
     @staticmethod
-    def list_chats(db: Session, user_id: str) -> list[Any]:
+    def list_chats(db: Session, user_id: str) -> list[schemas.UserChatItemOut]:
+        """List all chat sessions for a user with their latest message timestamp."""
         stmt = select(ChatMessage.session_id, ChatMessage.created_at).where(ChatMessage.user_id == user_id).distinct(ChatMessage.session_id).order_by(ChatMessage.created_at.desc())
-        return list(db.execute(stmt).all())
+        results = db.execute(stmt).all()
+        return [schemas.UserChatItemOut(session_id=row[0], latest_message_at=row[1]) for row in results]
 
     @staticmethod
     def get_chat(db: Session, chat_id: str) -> list[ChatMessage]:
