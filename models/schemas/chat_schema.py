@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Literal, Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -17,7 +17,10 @@ class MessageOut(BaseModel):
     content: str
     created_at: dt.datetime
     session_id: str
-
+    
+    model_config = {
+        "from_attributes": True
+    }
 
 class UserChatItemOut(BaseModel):
     """Summary of a chat session for list"""

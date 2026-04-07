@@ -21,7 +21,7 @@ class PatientDiagnosis(Base):
         {'schema': APP_SCHEMA_NAME}
     )
 
-    diagnosis_id: Mapped[str] = mapped_column(String, primary_key=True)
+    diagnosis_id: Mapped[str] = mapped_column(String, default=lambda: str(uuid4()), primary_key=True)
     patient_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.patient_profiles.id"), index=True, nullable=False)
     diagnosis_code_icd: Mapped[str] = mapped_column(String(20), nullable=False, index=True)  # ICD-10 code
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)

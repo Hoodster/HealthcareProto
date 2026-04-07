@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import datetime
-import email
-import email
 import os
 import secrets
 from typing import Annotated, Optional

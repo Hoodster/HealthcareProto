@@ -37,7 +37,7 @@ class ChatService:
         db.commit()
         db.refresh(new_response)
 
-        return new_question
+        return new_response
 
     @staticmethod
     def list_chats(db: Session, user_id: str) -> list[schemas.UserChatItemOut]:
