@@ -212,7 +212,7 @@ def main():
     migration_order = [
         (User, 'users'),           # No dependencies
         (Staff, 'staff_profiles'),   # Depends on User
-        (Patient, 'patients'),        # Depends on User - SQLite uses 'patients', PG uses 'app_patients'
+        (Patient, 'patient_profiles'),        # Depends on User - SQLite uses 'patients', PG uses 'app_patients'
         (PatientFile, 'patient_files'),    # Depends on Patient
         (PatientHistoryEntry, 'patient_history'),  # Depends on Patient
         (MedDocument, 'med_documents'),    # Depends on User and Patient

@@ -77,7 +77,6 @@ def register_user(
         api_token=secrets.token_hex(24),
     )
     db.add(user)
-    db.flush()
     db.commit()
     db.refresh(user)
     return user
