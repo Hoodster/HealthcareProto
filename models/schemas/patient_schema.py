@@ -17,9 +17,6 @@ class PatientOut(BaseModel):
     dob: dt.date | None
     sex: PatientSex | None
 
-    class Config:
-        from_attributes = True
-
 
 class PatientFileCreate(BaseModel):
     filename: str
@@ -31,9 +28,6 @@ class PatientFileOut(BaseModel):
     filename: str
     content_text: str
     created_at: dt.datetime
-
-    class Config:
-        from_attributes = True
 
 
 class PatientHistoryCreate(BaseModel):
@@ -48,6 +42,3 @@ class PatientHistoryOut(BaseModel):
     note: str
     occurred_at: dt.datetime | None
     created_at: dt.datetime
-
-    class Config:
-        from_attributes = True

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime as dt, timezone, date
-from operator import index
-from typing import Literal
 from uuid import uuid4
 
 from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, Index
@@ -27,7 +26,6 @@ class PatientDiagnosis(Base):
     diagnosis_code_icd: Mapped[str] = mapped_column(String(20), nullable=False, index=True)  # ICD-10 code
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
 
-
 class ChatMessage(Base):
     __tablename__ = "chat"
     __table_args__ = {'schema': APP_SCHEMA_NAME}
@@ -37,9 +35,6 @@ class ChatMessage(Base):
     sender_role: Mapped[str] = mapped_column(String(32), nullable=False)  # user | assistant | system
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
-
-    user: Mapped["User"] = relationship(back_populates="messages")
-
 
 class User(Base):
     __tablename__ = "users"
@@ -52,11 +47,6 @@ class User(Base):
     api_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
 
-    messages: Mapped[list["ChatMessage"]] = relationship(
-        back_populates="user",
-        cascade="all, delete-orphan",
-        order_by="ChatMessage.created_at.asc()"
-    )
     patient: Mapped["Patient | None"] = relationship(
         back_populates="user",
         foreign_keys="Patient.user_id",
@@ -68,7 +58,6 @@ class User(Base):
         uselist=False,
     )
 
-   
 class Staff(Base):
     __tablename__ = "staff_profiles"
     __table_args__ = {'schema': APP_SCHEMA_NAME}
@@ -81,7 +70,6 @@ class Staff(Base):
         back_populates="staff",
         foreign_keys=[user_id],
     )
-
 
 class Patient(Base):
     """Patient profile (§2 ust.1 - dokumentacja indywidualna)"""
@@ -108,7 +96,6 @@ class Patient(Base):
         back_populates="patient", cascade="all, delete-orphan"
     )
 
-
 class PatientFile(Base):
     __tablename__ = "patient_files"
     __table_args__ = (
@@ -123,7 +110,6 @@ class PatientFile(Base):
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
 
     patient: Mapped[Patient] = relationship(back_populates="files")
-
 
 class PatientHistoryEntry(Base): 
     """Patient medical history (§2 ust.3 pkt 1,2 - historia zdrowia i choroby)"""

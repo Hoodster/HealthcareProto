@@ -71,21 +71,6 @@ def list_history(
     return PatientService.list_history(db, patient_id, kind=kind)
 
 
-@router.get("/{patient_id}/visits", response_model=list[schema.PatientHistoryOut])
-def list_visits(patient_id: str, db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
-    return PatientService.list_history(db, patient_id, kind="visit")
-
-
-@router.post("/{patient_id}/chat/ai", response_model=schema.ClinicalChatResponse)
-def patient_clinical_chat(
-    patient_id: str,
-    payload: schema.ClinicalChatRequest,
-    db: Session = Depends(get_db_session),
-    user: User = Depends(get_current_user),
-):
-    """Clinical AI chat enriched with expert system evaluation for the given patient."""
-    return ChatService.patient_clinical_chat(db, user.id, patient_id, payload)
-
 
 @router.get("/{patient_id}/context")
 def get_patient_context(

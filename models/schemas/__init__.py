@@ -1,21 +1,14 @@
 from .auth_schema import (
     AccessTokenResponse,
-    AuthResponse,
     LoginRequest,
     ProfileOut,
     RegisterRequest,
     LoginOut
 )
 from .chat_schema import (
-    AIChatRequest,
-    AIChatResponse,
-    ChatCreate,
-    ChatOut,
-    ClinicalChatRequest,
-    ClinicalChatResponse,
-    ClinicalAlert,
-    MessageCreate,
+    MessageIn,
     MessageOut,
+    ChatInterface
 )
 from .patient_schema import (
     PatientCreate,
@@ -33,19 +26,12 @@ __all__ = [
     "RegisterRequest",
     "LoginRequest",
     "AccessTokenResponse",
-    "AuthResponse",
     "ProfileOut",
     "LoginOut",
     # chat
-    "ChatCreate",
-    "ChatOut",
-    "MessageCreate",
+    "MessageIn",
     "MessageOut",
-    "AIChatRequest",
-    "AIChatResponse",
-    "ClinicalChatRequest",
-    "ClinicalChatResponse",
-    "ClinicalAlert",
+    "ChatInterface",
     # patient
     "PatientCreate",
     "PatientOut",

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Optional
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -11,49 +12,18 @@ from api.models import User
 from api.services.chat_service import ChatService
 
 
-router = APIRouter(prefix="/chats", tags=["chats"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/chats", tags=["chats"], dependencies=[Depends(get_current_user), Depends(get_db_session)])
 
 
-@router.post("/send", response_model=schemas.ChatOut)
+@router.post("/send", response_model=schemas.MessageOut)
 def send_chat_message(
-    payload: schemas.ChatCreate,
-    db: Session = Depends(get_db_session),
-    user: User = Depends(get_current_user),
+    payload: schemas.MessageIn,
+    user: Optional[User] = Depends(get_current_user),
+    db: Session = Depends(get_db_session)
 ):
-    return ChatService.create_chat(db, user.id, payload)
+    return ChatService.send_chat_message(payload=payload, current_user=user, db=db)
 
 
-@router.get("/chat", response_model=list[schemas.ChatOut])
-def list_chats(db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
-    return ChatService.list_chats(db, user.id)
-
-
-@router.get("/{chat_id}", response_model=schemas.ChatOut)
-def get_chat(chat_id: int, db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
-    return ChatService.get_chat(db, user.id, chat_id)
-
-
-@router.get("/{chat_id}/messages", response_model=list[schemas.MessageOut])
-def list_messages(chat_id: int, db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
-    return ChatService.list_messages(db, user.id, chat_id)
-
-
-@router.post("/{chat_id}/messages", response_model=schemas.MessageOut)
-def add_message(
-    chat_id: int,
-    payload: schemas.MessageCreate,
-    db: Session = Depends(get_db_session),
-    user: User = Depends(get_current_user),
-):
-    return ChatService.add_message(db, user.id, chat_id, payload)
-
-
-@router.post("/{chat_id}/ai", response_model=schemas.AIChatResponse)
-def chat_with_ai(
-    chat_id: int,
-    payload: schemas.AIChatRequest,
-    db: Session = Depends(get_db_session),
-    user: User = Depends(get_current_user),
-):
-    ai_service_instance = ai_service.AIModelService()
-    return ChatService.chat_with_ai(db, model_service=ai_service_instance, message=payload.message, user_id=user.id, chat_id=chat_id, payload=payload)
+@router.get("/chats", response_model=list[schemas.MessageOut])
+def list_chats(user: User = Depends(get_current_user), db: Session = Depends(get_db_session)):
+    return ChatService.list_chats(db=db, user_id=user.id)
