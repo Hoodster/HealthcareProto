@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from api.ai_models import ChatGPTAIModel
 from expert_system import RuleEngine, PatientContext
 from api.services.ai_service import AIModelService
 from api.benchmarks import metrics as m_module
@@ -103,10 +104,8 @@ class BenchmarkRunner:
             f"Conditions: {', '.join(case.patient.conditions) or 'none'}. "
             f"Question: {case.question}"
         )
-        response = ai.chat(
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_msg}],
-            model=self._model,
-            max_tokens=400,
+        response = ChatGPTAIModel(system_prompt=system_prompt).answer(
+            question=user_msg
         )
         latency = (time.perf_counter() - t0) * 1000
 
@@ -155,10 +154,8 @@ class BenchmarkRunner:
             f"Conditions: {', '.join(case.patient.conditions) or 'none'}. "
             f"Question: {case.question}"
         )
-        response = AIModelService().chat(
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_msg}],
-            model=self._model,
-            max_tokens=400,
+        response = ChatGPTAIModel(system_prompt=system_prompt).answer(
+            question=user_msg
         )
         latency = (time.perf_counter() - t0) * 1000
 

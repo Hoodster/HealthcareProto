@@ -3,8 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-
-from api.db import init_db
+from api.routes.auth_routes import router as auth_router
 from api.routes.ai_routes import router as ai_router
 from api.routes.chat_routes import router as chat_router
 from api.routes.patient_routes import router as patient_router
@@ -12,7 +11,7 @@ from api.routes.mimic_routes import router as mimic_router
 from api.routes.evaluation_routes import router as evaluation_router
 from api.routes.benchmark_routes import router as benchmark_router
 
-from scripts.init_mimic_db import connect, connect_db
+from api.db import init_db
 
 
 API_PREFIX = "/hp_proto/api"
@@ -20,7 +19,6 @@ API_PREFIX = "/hp_proto/api"
 
 def create_app() -> FastAPI:
     init_db()
-    connect_db()
     api_router = APIRouter(prefix=API_PREFIX)
 
     app = FastAPI(
@@ -39,6 +37,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    api_router.include_router(auth_router)
     api_router.include_router(patient_router)
     api_router.include_router(chat_router)
     api_router.include_router(ai_router)

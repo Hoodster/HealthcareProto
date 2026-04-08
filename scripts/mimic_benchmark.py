@@ -7,7 +7,7 @@ Usage:
 
 Requirements:
     - PostgreSQL with MIMIC-III loaded in 'mimiciii' schema
-    - OPENAI_API_KEY set in environment (skip 'llm_only'/'full_pipeline' if unavailable)
+    - API_OPENAI set in environment (skip 'llm_only'/'full_pipeline' if unavailable)
 """
 from __future__ import annotations
 

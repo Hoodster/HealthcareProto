@@ -1,5 +1,6 @@
 annotated-doc==0.0.4
 annotated-types==0.7.0
+alembic==1.16.5
 anyio==4.13.0
 azure-core==1.39.0
 azure-storage-blob==12.28.0
@@ -20,9 +21,8 @@ idna==3.11
 isodate==0.7.2
 jiter==0.13.0
 jwt==1.4.0
-openai==2.24.0
+openai==2.30.0
 passlib==1.7.4
-psycopg2==2.9.11
 psycopg2-binary==2.9.11
 pycparser==3.0
 pydantic==2.12.5

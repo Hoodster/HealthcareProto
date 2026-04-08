@@ -28,11 +28,17 @@ SCHEMA_FILE = MIMIC_DATA_DIR / '.create_tables.sql'
 def connect_db():
     """Create database connection."""
     try:
-        conn = connect(**config_schema)
-        print(f"✓ Connected to database: {config_schema['database']}")
+        conn = connect(
+            host=config_schema['host'],
+            port=int(config_schema['port']),
+            database=config_schema['database'],
+            user=config_schema['user'],
+            password=config_schema['password'],
+        )
+        print(f"Connected to database: {config_schema['database']}")
         return conn
     except Exception as e:
-        print(f"✗ Failed to connect to database: {e}")
+        print(f"Failed to connect to database: {e}")
         raise
 
 
@@ -43,7 +49,7 @@ def create_schema(conn: connection):
         with conn.cursor() as cur:
             # Create mimiciii schema first
             cur.execute("CREATE SCHEMA IF NOT EXISTS mimiciii")
-            print("✓ Schema 'mimiciii' created")
+            print("Schema 'mimiciii' created")
 
             # Set search path to mimiciii schema
             cur.execute("SET search_path TO mimiciii, public")
@@ -54,9 +60,9 @@ def create_schema(conn: connection):
             cur.execute(schema_sql)
 
         conn.commit()
-        print("✓ Tables created in mimiciii schema")
+        print("Tables created in mimiciii schema")
     except Exception as e:
-        print(f"✗ Failed to create schema: {e}")
+        print(f"Failed to create schema: {e}")
         conn.rollback()
         raise
 
@@ -64,7 +70,7 @@ def create_schema(conn: connection):
 def import_csv_to_table(conn: connection, table_name: str, csv_file: Path):
     """Import CSV file into PostgreSQL table in mimiciii schema."""
     if not csv_file.exists():
-        print(f"  ⚠ File not found: {csv_file}")
+        print(f"File not found: {csv_file}")
         return
 
     try:
@@ -73,7 +79,7 @@ def import_csv_to_table(conn: connection, table_name: str, csv_file: Path):
             row_count = sum(1 for _ in f) - 1  # Exclude header
 
         if row_count == 0:
-            print(f"  ⚠ {table_name}: No data to import")
+            print(f"{table_name}: No data to import")
             return
 
         # Import data
@@ -111,11 +117,11 @@ def import_csv_to_table(conn: connection, table_name: str, csv_file: Path):
 
                 conn.commit()
 
-        print(f"  ✓ {table_name}: {rows_imported:,} rows imported")
+        print(f"  {table_name}: {rows_imported:,} rows imported")
 
 
     except Exception as e:
-        print(f"  ✗ {table_name}: Failed - {e}")
+        print(f"  {table_name}: Failed - {e}")
         conn.rollback()
 
 
@@ -194,14 +200,14 @@ def main():
 
     # Check data directory
     if not MIMIC_DATA_DIR.exists():
-        print(f"✗ Data directory not found: {MIMIC_DATA_DIR}")
+        print(f"Data directory not found: {MIMIC_DATA_DIR}")
         return
 
     if not SCHEMA_FILE.exists():
-        print(f"✗ Schema file not found: {SCHEMA_FILE}")
+        print(f"Schema file not found: {SCHEMA_FILE}")
         return
 
-    print(f"✓ Data directory: {MIMIC_DATA_DIR}")
+    print(f"Data directory: {MIMIC_DATA_DIR}")
 
     # Connect and initialize
     conn = connect()

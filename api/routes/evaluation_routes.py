@@ -2,13 +2,12 @@
 
 from typing import Annotated, List
 from fastapi import APIRouter, HTTPException, Depends, Query
-from sqlalchemy.orm import Session
 from expert_system.models.patient_context import PatientContext
 from expert_system.models.decision_context import DecisionContext
 from expert_system.engine.rule_engine import RuleEngine
-from api.auth import get_db
+from api.auth import get_current_user
 
-router = APIRouter(prefix="/evaluate", tags=["expert-system"])
+router = APIRouter(prefix="/evaluate", tags=["expert-system"], dependencies=[Depends(get_current_user)])
 
 # Global rule engine instance (singleton pattern)
 _rule_engine = None
