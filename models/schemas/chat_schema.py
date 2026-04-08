@@ -7,13 +7,12 @@ from pydantic import BaseModel, Field
 
 
 class MessageIn(BaseModel):
-    role: Literal["user", "assistant", "system"] = "user"
     content: str
     session_id: Optional[str] = None
 
 
 class MessageOut(BaseModel):
-    role: str
+    sender_role: str
     content: str
     created_at: dt.datetime
     session_id: str

@@ -38,14 +38,18 @@ class ChatService:
         )
         db.add(new_response)
         db.commit()
-        db.refresh(new_response)
 
         return new_response
 
     @staticmethod
     def list_chats(db: Session, user_id: str) -> list[schemas.UserChatItemOut]:
         """List all chat sessions for a user with their latest message timestamp."""
-        stmt = select(ChatMessage.session_id, ChatMessage.created_at).where(ChatMessage.user_id == user_id).distinct(ChatMessage.session_id).order_by(ChatMessage.created_at.desc())
+        stmt = (
+            select(ChatMessage.session_id, ChatMessage.created_at)
+            .where(ChatMessage.user_id == user_id, ChatMessage.session_id.isnot(None))
+            .distinct(ChatMessage.session_id)
+            .order_by(ChatMessage.session_id, ChatMessage.created_at.desc())
+        )
         results = db.execute(stmt).all()
         return [schemas.UserChatItemOut(session_id=row[0], latest_message_at=row[1]) for row in results]
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from api.db import get_db_session
@@ -28,3 +28,14 @@ def send_chat_message(
 def list_chats(user: User = Depends(get_current_user), db: Session = Depends(get_db_session)):
     """List all chat sessions for the current user."""
     return ChatService.list_chats(db=db, user_id=user.id)
+
+@router.get("/{chat_id}", response_model=schemas.ChatInterface)
+def get_chat(chat_id: str, db: Session = Depends(get_db_session)):
+    """Get all messages for a specific chat session."""
+    messages = ChatService.get_chat(db=db, chat_id=chat_id)
+    if not messages:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+    return schemas.ChatInterface(
+        session_id=chat_id,
+        messages=[schemas.MessageOut.from_orm(msg) for msg in messages]
+    )

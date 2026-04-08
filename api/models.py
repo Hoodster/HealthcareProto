@@ -28,10 +28,14 @@ class PatientDiagnosis(Base):
 
 class ChatMessage(Base):
     __tablename__ = "chat"
-    __table_args__ = {'schema': APP_SCHEMA_NAME}
+    __table_args__ = (
+        Index('ix_chat_session', 'session_id', 'created_at'),
+        {'schema': APP_SCHEMA_NAME}
+    )
 
-    session_id: Mapped[str] = mapped_column(String, primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), index=True, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String, default=lambda: str(uuid4()), nullable=False, index=True)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), index=True, nullable=True)
     sender_role: Mapped[str] = mapped_column(String(32), nullable=False)  # user | assistant | system
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(timezone.utc), nullable=False)
