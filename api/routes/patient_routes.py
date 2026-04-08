@@ -17,8 +17,10 @@ router = APIRouter(prefix="/patients", tags=["patients"])
 @router.post("", response_model=schema.PatientOut)
 def create_patient(
     payload: schema.PatientCreate,
-    db: HPDbSession
+    db: HPDbSession,
+    user: HPCurrentUser,
 ):
+    payload = payload.model_copy(update={"user_id": user.id})
     return PatientService.create_patient_profile(db, payload)
 
 
