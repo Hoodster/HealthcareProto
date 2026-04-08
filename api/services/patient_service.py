@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import models.schemas as schemas
-from api.models import Patient, PatientFile, PatientHistoryEntry
+from api.models import Patient, PatientFile, PatientHistoryEntry, User
 from api.services.ai_service import AIModelService
 
 _QTC_RE = re.compile(r'\bqtc\s*[=:]\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
@@ -22,15 +22,12 @@ _ECG_KINDS = {'diagnostic_ecg', 'diagnostic_holter'}
 
 class PatientService:
     @staticmethod
-    def create_patient(
+    def create_patient_profile(
         db: Session,
-        user_id: str,
         patient_dto: schemas.PatientCreate,
     ) -> Patient:
         patient = Patient(
-            user_id=user_id,
-            first_name=patient_dto.first_name,
-            last_name=patient_dto.last_name,
+            user_id=patient_dto.user_id,
             dob=patient_dto.dob,
             sex=patient_dto.sex,
         )
@@ -41,9 +38,7 @@ class PatientService:
 
     @staticmethod
     def list_patients(db: Session, user_id: str) -> list[Patient]:
-        stmt = select(Patient).where(Patient.user_id == user_id).order_by(
-            Patient.created_at.desc()
-        )
+        stmt = select(Patient).where(Patient.user_id == user_id)
         return list(db.execute(stmt).scalars().all())
 
     @staticmethod
@@ -110,9 +105,9 @@ class PatientService:
             .limit(50)
             .all()
         )
-
+        
         profile_text = (
-            f"Patient {patient.first_name} {patient.last_name}, "
+            f"Patient data:"
             f"age {date.today().year - patient.dob.year if patient.dob else 'unknown'}, sex: {patient.sex}\n\n"
         )
 
@@ -211,6 +206,14 @@ class PatientService:
             gender=gender,
             weight=None,
         )
+        
+    @staticmethod
+    def delete_all_patients(db: Session, user: User | None = None):
+        """Delete all patient records"""
+        if not user or not user.staff or not user.staff.role == 'admin':
+            raise HTTPException(status_code=403, detail="Admin privileges required")
+        db.query(Patient).delete()
+        db.commit()
 
 
 class DocumentationService:

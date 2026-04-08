@@ -1,19 +1,15 @@
 from .auth_schema import (
-    AuthResponse,
+    AccessTokenResponse,
     LoginRequest,
     ProfileOut,
     RegisterRequest,
+    LoginOut
 )
 from .chat_schema import (
-    AIChatRequest,
-    AIChatResponse,
-    ChatCreate,
-    ChatOut,
-    ClinicalChatRequest,
-    ClinicalChatResponse,
-    ClinicalAlert,
-    MessageCreate,
+    MessageIn,
     MessageOut,
+    UserChatItemOut,
+    ChatInterface
 )
 from .patient_schema import (
     PatientCreate,
@@ -22,6 +18,7 @@ from .patient_schema import (
     PatientHistoryCreate,
     PatientHistoryOut,
     PatientOut,
+    PatientSex
 )
 from .profile_schema import *  # noqa: F401, F403
 
@@ -29,18 +26,14 @@ __all__ = [
     # auth
     "RegisterRequest",
     "LoginRequest",
-    "AuthResponse",
+    "AccessTokenResponse",
     "ProfileOut",
+    "LoginOut",
     # chat
-    "ChatCreate",
-    "ChatOut",
-    "MessageCreate",
+    "MessageIn",
     "MessageOut",
-    "AIChatRequest",
-    "AIChatResponse",
-    "ClinicalChatRequest",
-    "ClinicalChatResponse",
-    "ClinicalAlert",
+    "UserChatItemOut",
+    "ChatInterface",
     # patient
     "PatientCreate",
     "PatientOut",
@@ -48,4 +41,5 @@ __all__ = [
     "PatientFileOut",
     "PatientHistoryCreate",
     "PatientHistoryOut",
+    "PatientSex",
 ]

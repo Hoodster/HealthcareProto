@@ -7,22 +7,19 @@ PatientSex = Literal["male", "female"]
 
 
 class PatientCreate(BaseModel):
-    first_name: str
-    last_name: str
+    user_id: str
     dob: dt.date | None = None
     sex: PatientSex
 
 
 class PatientOut(BaseModel):
-    id: str
-    first_name: str
-    last_name: str
+    patient_id: str
     dob: dt.date | None
     sex: PatientSex | None
-    created_at: dt.datetime
-
-    class Config:
-        from_attributes = True
+    
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class PatientFileCreate(BaseModel):
@@ -35,9 +32,6 @@ class PatientFileOut(BaseModel):
     filename: str
     content_text: str
     created_at: dt.datetime
-
-    class Config:
-        from_attributes = True
 
 
 class PatientHistoryCreate(BaseModel):
@@ -52,6 +46,7 @@ class PatientHistoryOut(BaseModel):
     note: str
     occurred_at: dt.datetime | None
     created_at: dt.datetime
-
-    class Config:
-        from_attributes = True
+    
+    model_config = {
+        "from_attributes": True
+    }

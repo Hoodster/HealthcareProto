@@ -8,11 +8,11 @@ from api.config import get_openai_api_key
 AIServiceProvider = Literal['ChatGPT']
 
 class AIModelService:
-    def __init__(self, ai_provider: Optional[AIServiceProvider] = 'ChatGPT', model: Optional[str] = 'gpt-5.2') -> None:
+    def __init__(self, ai_provider: Optional[AIServiceProvider] = 'ChatGPT', model: Optional[str] = 'gpt-4o') -> None:
         api_key = get_openai_api_key()
         if not api_key:
             raise RuntimeError(
-                "OPENAI_API_KEY not set. Set OPENAI_API_KEY in the environment or in .env."
+                "API_OPENAI not set. Set API_OPENAI in the environment or in .env."
             )
         if ai_provider == 'ChatGPT':
             self.client = ChatGPTAIModel(model=model)

@@ -3,13 +3,14 @@ from __future__ import annotations
 
 from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from api.auth import get_current_user
 from api.benchmarks.benchmark_runner import BenchmarkReport, BenchmarkRunner, Mode
 from api.benchmarks.test_dataset import BENCHMARK_CASES
 
-router = APIRouter(prefix="/benchmark", tags=["benchmark"])
+router = APIRouter(prefix="/benchmark", tags=["benchmark"], dependencies=[Depends(get_current_user)])
 
 
 class BenchmarkRunRequest(BaseModel):
