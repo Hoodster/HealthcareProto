@@ -37,5 +37,5 @@ def get_chat(chat_id: str, db: Session = Depends(get_db_session)):
         raise HTTPException(status_code=404, detail="Chat session not found")
     return schemas.ChatInterface(
         session_id=chat_id,
-        messages=[schemas.MessageOut.from_orm(msg) for msg in messages]
+        messages=[schemas.MessageOut.model_validate(msg) for msg in messages]
     )
