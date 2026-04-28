@@ -77,6 +77,13 @@ def register_user(
     db.add(user)
     db.commit()
     db.refresh(user)
+    
+    if (user_dto.role == "patient"):
+        PatientService.create_patient_profile(db, PatientCreate(
+            user_id=user.id,
+            dob=user_dto.dob,
+            sex=user_dto.sex
+        ))
     return user
 
 
@@ -121,7 +128,7 @@ def seed_users(db: Session):
     __get_or_create_dev_user__(
         db,
         email=os.getenv("DEV_ADMIN_EMAIL", 'admin@local'),
-        password=os.getenv("DEV_ADMIN_PASSWORD", "admin"),
+        password=os.getenv("DEV_ADMIN_PASSWORD", "administrator"),
         full_name=os.getenv("DEV_ADMIN_NAME", "Admin"),
         role="admin"
     )
