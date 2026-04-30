@@ -67,9 +67,3 @@ def list_history(
     kind: str | None = Query(default=None),
 ):
     return PatientService.list_history(db, patient_id, kind=kind)
-
-@router.delete("/patients")
-def delete_all_patients(db: HPDbSession):
-    """Dangerous endpoint to delete all patient records - for testing purposes."""
-    PatientService.delete_all_patients(db)
-    return {"detail": "All patients deleted"}

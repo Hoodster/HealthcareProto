@@ -11,6 +11,7 @@ from api.routes.mimic_routes import router as mimic_router
 from api.routes.evaluation_routes import router as evaluation_router
 from api.routes.benchmark_routes import router as benchmark_router
 from api.routes.pipeline_routes import router as pipeline_router
+from api.routes.documentation_routes import router as documentation_router
 
 from api.db import init_db
 
@@ -40,8 +41,8 @@ def create_app() -> FastAPI:
 
     api_router.include_router(auth_router)
     api_router.include_router(patient_router)
+    api_router.include_router(documentation_router)
     api_router.include_router(chat_router)
-    api_router.include_router(ai_router)
     api_router.include_router(mimic_router)
     api_router.include_router(evaluation_router)
     api_router.include_router(benchmark_router)

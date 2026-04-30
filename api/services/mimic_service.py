@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import params
 from pydantic.dataclasses import dataclass
 from sqlalchemy import distinct, select, or_, and_
@@ -5,9 +7,11 @@ from sqlalchemy.orm import Session, selectinload, joinedload
 from api import models
 from typing import Optional, Any
 
+log = logging.getLogger(__name__)
+
 CREATININE_ITEMID = 50912  # MIMIC-III d_labitems: Creatinine (Blood)
 
-# Minimal ICD-9 → human-readable condition mapping for conditions we care about
+# Minimal ICD-9
 _ICD9_CONDITIONS: dict[str, str] = {
     "42731": "atrial fibrillation",
     "42732": "atrial flutter",
@@ -233,14 +237,27 @@ def build_mimic_patient_context(subject_id: int, hadm_id: int, db: Session):
             if label not in conditions:
                 conditions.append(label)
 
+    # QTc fallback: MIMIC-III does not expose individual ECG waveform measurements
+    # as structured chartevents in the standard demo/full dataset.  A population
+    # median of 420 ms is used as a conservative placeholder.  Any rule that fires
+    # solely on QTc (e.g. QTc > 500 ms threshold) will therefore NOT trigger for
+    # MIMIC patients — this is a known limitation of the benchmark dataset.
+    log.warning(
+        "QTc unavailable for MIMIC patient %s / admission %s — using population "
+        "median fallback (420 ms). Expert-system rules sensitive to QTc prolongation "
+        "will not fire for this context.",
+        subject_id,
+        hadm_id,
+    )
+
     return PatientContext(
         patient_id=f"MIMIC_{subject_id}_{hadm_id}",
-        qtc=420.0,  # placeholder — no ECG chartevents in current model
+        qtc=420.0,
         egfr=egfr,
         medications=medications,
         conditions=conditions,
         age=age,
         gender=gender,
-        weight=60.0,  # todo: placeholder — weight chartevents are sparse and noisy
+        weight=None
     )
 

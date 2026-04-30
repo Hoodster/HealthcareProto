@@ -161,6 +161,60 @@ class MedDocument(Base):
 
     patient: Mapped[Patient] = relationship(back_populates="med_documents")
 
+
+# ============================================================================
+# Drug Knowledge Base (sourced from DrugBank)
+# ============================================================================
+
+class Drug(Base):
+    """Canonical drug entries imported from DrugBank XML."""
+    __tablename__ = "drugs"
+    __table_args__ = (
+        Index('ix_drug_name_lower', 'name'),
+        {'schema': APP_SCHEMA_NAME},
+    )
+
+    drugbank_id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    interactions_as_a: Mapped[list["DrugInteraction"]] = relationship(
+        back_populates="drug_a",
+        foreign_keys="DrugInteraction.drug_a_id",
+        cascade="all, delete-orphan",
+    )
+    interactions_as_b: Mapped[list["DrugInteraction"]] = relationship(
+        back_populates="drug_b",
+        foreign_keys="DrugInteraction.drug_b_id",
+        cascade="all, delete-orphan",
+    )
+
+
+class DrugInteraction(Base):
+    """Pairwise drug-drug interactions imported from DrugBank XML."""
+    __tablename__ = "drug_interactions"
+    __table_args__ = (
+        UniqueConstraint("drug_a_id", "drug_b_id", name="uq_drug_interaction_pair"),
+        Index('ix_drug_interaction_a', 'drug_a_id'),
+        Index('ix_drug_interaction_b', 'drug_b_id'),
+        {'schema': APP_SCHEMA_NAME},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    drug_a_id: Mapped[str] = mapped_column(
+        ForeignKey(f"{APP_SCHEMA_NAME}.drugs.drugbank_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    drug_b_id: Mapped[str] = mapped_column(
+        ForeignKey(f"{APP_SCHEMA_NAME}.drugs.drugbank_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    drug_a: Mapped[Drug] = relationship(back_populates="interactions_as_a", foreign_keys=[drug_a_id])
+    drug_b: Mapped[Drug] = relationship(back_populates="interactions_as_b", foreign_keys=[drug_b_id])
+
+
 # ============================================================================
 # MIMIC-III Database Models (Read-Only Research Data)
 # ============================================================================
