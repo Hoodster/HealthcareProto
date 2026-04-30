@@ -37,8 +37,10 @@ class PatientService:
         return patient
 
     @staticmethod
-    def list_patients(db: Session, user_id: str) -> list[Patient]:
-        stmt = select(Patient).where(Patient.user_id == user_id)
+    def list_patients(db: Session, user_id: str | None = None) -> list[Patient]:
+        stmt = select(Patient)
+        if user_id is not None:
+            stmt = stmt.where(Patient.user_id == user_id)
         return list(db.execute(stmt).scalars().all())
 
     @staticmethod

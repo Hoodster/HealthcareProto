@@ -7,13 +7,14 @@ PatientSex = Literal["male", "female"]
 
 
 class PatientCreate(BaseModel):
-    user_id: str
+    user_id: str | None = None
     dob: dt.date | None = None
-    sex: PatientSex
+    sex: PatientSex | None = None
 
 
 class PatientOut(BaseModel):
     patient_id: str
+    user_id: str | None
     dob: dt.date | None
     sex: PatientSex | None
     
