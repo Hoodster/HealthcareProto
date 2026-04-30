@@ -190,3 +190,55 @@ class BetaBlockerInteractionRule(BaseRule):
             f"there is increased risk of bradycardia and AV block. "
             f"Monitor heart rate and consider reducing beta-blocker dose if needed."
         )
+
+
+class DatabaseDrugInteractionRule(BaseRule):
+    """
+    Drug interaction rule backed by the DrugBank database (app.drug_interactions).
+
+    For each pair of patient medications that has an entry in the database,
+    emits a HIGH alert with the DrugBank interaction description.
+
+    Falls back silently when the drug DB store is not loaded.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.category = "interaction"
+
+    def _get_interactions(self, patient: PatientContext):
+        try:
+            from api.drug_db_store import get_drug_interactions, is_initialized
+            if not is_initialized():
+                return []
+            return get_drug_interactions(patient.medications)
+        except Exception:
+            return []
+
+    def condition(self, patient: PatientContext) -> bool:
+        return bool(self._get_interactions(patient))
+
+    def action(self, patient: PatientContext, decision: DecisionContext) -> None:
+        interactions = self._get_interactions(patient)
+        for drug_a, drug_b, description in interactions:
+            short_desc = (description[:200] + "…") if len(description) > 200 else description
+            decision.add_alert(
+                message=(
+                    f"DrugBank interaction: {drug_a} + {drug_b}. "
+                    f"{short_desc}"
+                ),
+                severity=AlertSeverity.HIGH,
+                rule_name=self.name,
+                category=self.category,
+            )
+
+    def explanation(self, patient: PatientContext) -> str:
+        interactions = self._get_interactions(patient)
+        if not interactions:
+            return ""
+        lines = [f"- {a} + {b}: {desc[:150]}…" if len(desc) > 150 else f"- {a} + {b}: {desc}"
+                 for a, b, desc in interactions]
+        return (
+            "The following drug-drug interactions were identified in the DrugBank database:\n"
+            + "\n".join(lines)
+        )

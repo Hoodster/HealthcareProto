@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from api.ai_models import ChatGPTAIModel
 from api.auth import HPDbSession
+from api.rag_store import retrieve_context
 import models.schemas as schemas
 from api.models import ChatMessage, User
 
@@ -42,7 +43,8 @@ class ChatService:
         )
         db.add(new_question)
 
-        ai_answer = ChatGPTAIModel().answer(payload.content, history=history)
+        rag_ctx = retrieve_context(payload.content)
+        ai_answer = ChatGPTAIModel().answer(payload.content, history=history, rag_context=rag_ctx or None)
         new_response = ChatMessage(
             sender_role="assistant", 
             content=ai_answer, 

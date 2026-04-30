@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -14,13 +16,22 @@ from api.routes.pipeline_routes import router as pipeline_router
 from api.routes.documentation_routes import router as documentation_router
 
 from api.db import init_db
+from api.rag_store import init_rag_store
+from api.drug_db_store import init_drug_db_store
 
 
 API_PREFIX = "/hp_proto/api"
 
 
-def create_app() -> FastAPI:
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
     init_db()
+    init_rag_store()
+    init_drug_db_store()
+    yield
+
+
+def create_app() -> FastAPI:
     api_router = APIRouter(prefix=API_PREFIX)
 
     app = FastAPI(
@@ -29,6 +40,7 @@ def create_app() -> FastAPI:
         docs_url=f"{API_PREFIX}/swagger",
         redoc_url=f"{API_PREFIX}/redoc",
         openapi_url=f"{API_PREFIX}/openapi.json",
+        lifespan=_lifespan,
     )
 
     app.add_middleware(

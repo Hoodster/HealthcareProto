@@ -87,6 +87,7 @@ class ChatGPTAIModel(AIModel):
         question: str,
         patient_data=None,
         history: Optional[list[dict]] = None,
+        rag_context: Optional[str] = None,
     ) -> str:
         """
         Args:
@@ -94,6 +95,7 @@ class ChatGPTAIModel(AIModel):
             patient_data: Optional PatientContext for clinical context.
             history:      Prior turns as [{"role": "user"|"assistant", "content": str}, ...].
                           Pass in chronological order (oldest first).
+            rag_context:  Retrieved guideline passages to ground the answer.
         """
         client = self.__getclient__()
 
@@ -108,6 +110,16 @@ class ChatGPTAIModel(AIModel):
             dev_prompt += f"""
             During preparing an answer, consider patient's following conditions:
             {user_msg}
+            """
+        if rag_context:
+            dev_prompt += f"""
+            Use the following clinical guideline excerpts to ground your answer.
+            Prefer information from these excerpts over your general knowledge when relevant.
+            If the excerpts do not address the question, rely on your clinical expertise.
+
+            --- GUIDELINE EXCERPTS ---
+            {rag_context}
+            --- END EXCERPTS ---
             """
         dev_prompt += self.prompts.question_prompt
 

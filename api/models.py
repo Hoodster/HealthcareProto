@@ -165,7 +165,6 @@ class MedDocument(Base):
 # ============================================================================
 # Drug Knowledge Base (sourced from DrugBank)
 # ============================================================================
-
 class Drug(Base):
     """Canonical drug entries imported from DrugBank XML."""
     __tablename__ = "drugs"
@@ -216,11 +215,9 @@ class DrugInteraction(Base):
 
 
 # ============================================================================
-# MIMIC-III Database Models (Read-Only Research Data)
+# MIMIC-III Database Models (Read-Only)
 # ============================================================================
 # These models map to the MIMIC-III research database tables.
-# Schema: 'public' (default PostgreSQL schema for MIMIC-III)
-# Do NOT modify these tables - they contain research data.
 
 class MimicPatient(Base):
     """MIMIC-III Patients table (read-only)"""
@@ -374,7 +371,6 @@ class MimicLabEvent(Base):
     valueuom: Mapped[str | None] = mapped_column(String(20), nullable=True)
     flag: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
-    # Relationship
     lab_item: Mapped["MimicLabItem"] = relationship(back_populates="events")
 
 
@@ -390,5 +386,4 @@ class MimicLabItem(Base):
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     loinc_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
-    # Relationship
     events: Mapped[list[MimicLabEvent]] = relationship(back_populates="lab_item")
