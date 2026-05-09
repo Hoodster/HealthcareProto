@@ -36,6 +36,7 @@ class BenchmarkResult(BaseModel):
     dose_adjustment_present: bool
     response_text: str
     latency_ms: float
+    rag_used: bool = False                 # True when RAG context was injected
 
 
 class ModeReport(BaseModel):
@@ -126,25 +127,24 @@ class BenchmarkRunner:
         engine = RuleEngine()
         decision = engine.evaluate(case.patient)
 
-        # # Optional RAG
-        # rag_chunks: list[str] = []
-        # try:
-        #     from v011.retrieved_augumentation.rag_system import MedicalRAGSystem
-        #     rag = MedicalRAGSystem()
-        #     results = rag.retrieve(case.question, top_k=3)
-        #     rag_chunks = [r.get("text", "") for r in results if r.get("text")]
-        # except Exception:
-        #     pass
+        # RAG — retrieve relevant guideline passages for the question
+        rag_context: str = ""
+        try:
+            from api.rag_store import retrieve_context
+            rag_context = retrieve_context(case.question, top_k=4)
+        except Exception:
+            pass
 
         alert_lines = "\n".join(
             f"  [{a.severity.value if hasattr(a.severity, 'value') else a.severity}] {a.category}: {a.message}"
             for a in decision.alerts
         )
-        # rag_section = "\n\nRelevant literature:\n" + "\n---\n".join(rag_chunks) if rag_chunks else ""
+        rag_section = f"\n\nRelevant guideline excerpts:\n{rag_context}" if rag_context else ""
         system_prompt = (
             "You are a clinical decision support assistant. "
             f"Expert system result: contraindicated={decision.contraindicated}, "
             f"risk={decision.risk_score}/100.\nAlerts:\n{alert_lines or 'none'}"
+            f"{rag_section}"
         )
         med_line = ", ".join(case.patient.medications) or "none"
         user_msg = (
@@ -172,6 +172,7 @@ class BenchmarkRunner:
             dose_adjustment_present=decision.dose_adjustment is not None,
             response_text=response,
             latency_ms=latency,
+            rag_used=bool(rag_context),
         )
 
     # ------------------------------------------------------------------

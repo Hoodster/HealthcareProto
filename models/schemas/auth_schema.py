@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -10,6 +11,8 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=6)
     full_name: str
     role: str = 'patient'
+    dob: dt.date | None = None
+    sex: Literal['male', 'female'] | None = None
 
 
 class LoginRequest(BaseModel):

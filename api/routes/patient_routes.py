@@ -1,40 +1,33 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-
+from fastapi import APIRouter, HTTPException, Query
 
 from api.db import get_db_session
+from expert_system.models.patient_context import PatientContext
 import models.schemas as schema
-from api.auth import HPCurrentUser, HPDbSession, get_current_user
-from api.models import User
+from api.auth import HPCurrentUser, HPDbSession
 from api.services.patient_service import PatientService
 
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
+@router.get("", response_model=list[schema.PatientOut])
+def list_patients(db: HPDbSession, user: HPCurrentUser):
+    if user.staff:
+        return PatientService.list_patients(db)
+    return PatientService.list_patients(db, user_id=user.id)
 
-@router.post("", response_model=schema.PatientOut)
-def create_patient(
-    payload: schema.PatientCreate,
+
+@router.get("/{patient_id}", response_model=PatientContext)
+def get_patient_context(
+    patient_id: str,
     db: HPDbSession,
     user: HPCurrentUser,
 ):
-    payload = payload.model_copy(update={"user_id": user.id})
-    return PatientService.create_patient_profile(db, payload)
-
-
-@router.get("", response_model=list[schema.PatientOut])
-def list_patients(db: Session = Depends(get_db_session), user: User = Depends(get_current_user)):
-    return PatientService.list_patients(db, user.id)
-
-
-@router.get("/{patient_id}", response_model=schema.PatientOut)
-def get_patient(patient_id: str, db: HPDbSession, user: HPCurrentUser):
-    patient = PatientService.get_by_id(db, patient_id)
-    if not user.staff or patient.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to access this patient")
-    return patient
+    """Return the PatientContext as built from the patient's history records."""
+    PatientService.get_by_id(db, patient_id)
+    ctx = PatientService.build_patient_context(patient_id, db)
+    return ctx.model_dump()
 
 # @router.post("/{patient_id}/files", response_model=schema.PatientFileOut)
 # def add_patient_file(
@@ -74,23 +67,3 @@ def list_history(
     kind: str | None = Query(default=None),
 ):
     return PatientService.list_history(db, patient_id, kind=kind)
-
-
-
-@router.get("/{patient_id}/context")
-def get_patient_context(
-    patient_id: str,
-    db: HPDbSession,
-    user: HPCurrentUser,
-):
-    """Return the PatientContext as built from the patient's history records."""
-    PatientService.get_by_id(db, patient_id)  # authorization check
-    ctx = PatientService.build_patient_context(patient_id, db)
-    return ctx.model_dump()
-
-
-@router.delete("/patients")
-def delete_all_patients(db: HPDbSession):
-    """Dangerous endpoint to delete all patient records - for testing purposes."""
-    PatientService.delete_all_patients(db)
-    return {"detail": "All patients deleted"}

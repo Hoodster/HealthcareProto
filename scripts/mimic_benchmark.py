@@ -76,7 +76,11 @@ def print_report(report) -> None:
     print("MIMIC-III BENCHMARK RESULTS")
     print("=" * 70)
     for r in report.reports:
-        print(f"\nMode: {r.mode.upper():<20}  N={r.n_cases}")
+        rag_note = ""
+        if r.mode == "full_pipeline":
+            rag_count = sum(1 for res in report.raw_results if res.mode == "full_pipeline" and res.rag_used)
+            rag_note = f"  RAG active: {rag_count}/{r.n_cases} cases"
+        print(f"\nMode: {r.mode.upper():<20}  N={r.n_cases}{rag_note}")
         print(f"  Recall (alerts):           {r.mean_recall:.3f}")
         print(f"  Precision (alerts):        {r.mean_precision:.3f}")
         print(f"  Contraindication accuracy: {r.mean_contraindication_accuracy:.3f}")

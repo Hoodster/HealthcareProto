@@ -3,15 +3,26 @@
 Initialize MIMIC-III demo database with data from CSV files.
 This script creates tables and imports data into PostgreSQL.
 """
-
+import inspect
 import os
 import csv
+import sys
 from dotenv import load_dotenv
 from psycopg2 import connect, sql
 from psycopg2.extensions import connection
 from pathlib import Path
 from tqdm import tqdm
-from utils.set_master_path import switch_to_app_context
+# from utils.set_master_path import switch_to_app_context
+
+def switch_to_app_context():
+    frame = inspect.currentframe()
+    caller = frame.f_back if frame is not None else None
+    if caller is not None:
+        file = caller.f_globals.get('__file__')
+        root = Path(file).parent.parent if file else Path.cwd()
+        sys.path.insert(0, str(root))
+    else:
+        print("Unable to determine the caller's file path.")
 switch_to_app_context()
 
 
@@ -210,7 +221,7 @@ def main():
     print(f"Data directory: {MIMIC_DATA_DIR}")
 
     # Connect and initialize
-    conn = connect()
+    conn = connect_db()
 
     try:
         create_schema(conn)

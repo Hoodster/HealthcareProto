@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from api.ai_models import ChatGPTAIModel
 from api.auth import HPDbSession
+from api.rag_store import retrieve_context
 import models.schemas as schemas
 from api.models import ChatMessage, User
 
@@ -21,15 +22,29 @@ class ChatService:
             payload.session_id = result or str(uuid4())
             
         current_user_id = current_user.id if current_user else None
-        
+
+        history_stmt = (
+            select(ChatMessage)
+            .where(ChatMessage.session_id == payload.session_id)
+            .order_by(ChatMessage.created_at.asc())
+        )
+        prior_messages = db.execute(history_stmt).scalars().all()
+        history = [
+            {"role": msg.sender_role, "content": msg.content}
+            for msg in prior_messages
+            if msg.sender_role in ("user", "assistant")
+        ]
+
         new_question = ChatMessage(
-            sender_role="user", 
-            content=payload.content, 
-            session_id=payload.session_id, 
-            user_id=current_user_id)
+            sender_role="user",
+            content=payload.content,
+            session_id=payload.session_id,
+            user_id=current_user_id,
+        )
         db.add(new_question)
-        
-        ai_answer = ChatGPTAIModel().answer(payload.content)
+
+        rag_ctx = retrieve_context(payload.content)
+        ai_answer = ChatGPTAIModel().answer(payload.content, history=history, rag_context=rag_ctx or None)
         new_response = ChatMessage(
             sender_role="assistant", 
             content=ai_answer, 

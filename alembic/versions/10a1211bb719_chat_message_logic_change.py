@@ -40,7 +40,7 @@ def downgrade() -> None:
     op.drop_column('patient_diagnoses', 'diagnosis_id', schema='app')
     op.add_column('chat', sa.Column('id', sa.INTEGER(), autoincrement=True, nullable=False), schema='app')
     op.add_column('chat', sa.Column('chat_id', sa.INTEGER(), autoincrement=False, nullable=False), schema='app')
-    op.drop_constraint(None, 'chat', schema='app', type_='foreignkey')
+    op.drop_constraint('', 'chat', schema='app', type_='foreignkey')
     op.drop_index(op.f('ix_app_chat_user_id'), table_name='chat', schema='app')
     op.create_index(op.f('ix_app_chat_chat_id'), 'chat', ['chat_id'], unique=False, schema='app')
     op.drop_column('chat', 'user_id', schema='app')

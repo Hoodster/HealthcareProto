@@ -12,6 +12,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/register", response_model=dict[str, str])
 def register(payload: schemas.RegisterRequest, db: HPDbSession) -> dict[str, str]:
     user = register_user(db, user_dto=payload)
+    if not user:
+        raise RuntimeError("User registration failed")
     return {"id": user.id}
 
 @router.post("/login", response_model=schemas.AccessTokenResponse)

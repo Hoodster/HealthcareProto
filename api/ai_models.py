@@ -82,35 +82,58 @@ class ChatGPTAIModel(AIModel):
             )
         return OpenAI(api_key=api_key)
         
-    def answer(self,
-               question,
-               patient_data=None) -> str:
+    def answer(
+        self,
+        question: str,
+        patient_data=None,
+        history: Optional[list[dict]] = None,
+        rag_context: Optional[str] = None,
+    ) -> str:
+        """
+        Args:
+            question:     The current user message.
+            patient_data: Optional PatientContext for clinical context.
+            history:      Prior turns as [{"role": "user"|"assistant", "content": str}, ...].
+                          Pass in chronological order (oldest first).
+            rag_context:  Retrieved guideline passages to ground the answer.
+        """
         client = self.__getclient__()
-        
+
         dev_prompt = ""
         if patient_data:
             user_msg = (
                 f"Patient: age {patient_data.age}, gender {patient_data.gender}, "
-            f"QTc {patient_data.qtc} ms, eGFR {patient_data.egfr} mL/min/1.73m². "
-            f"Medications: {', '.join(patient_data.medications) if patient_data.medications else 'none'}. "
-            f"Conditions: {', '.join(patient_data.conditions) if patient_data.conditions else 'none'}. "
+                f"QTc {patient_data.qtc} ms, eGFR {patient_data.egfr} mL/min/1.73m². "
+                f"Medications: {', '.join(patient_data.medications) if patient_data.medications else 'none'}. "
+                f"Conditions: {', '.join(patient_data.conditions) if patient_data.conditions else 'none'}. "
             )
-            
             dev_prompt += f"""
             During preparing an answer, consider patient's following conditions:
             {user_msg}
             """
+        if rag_context:
+            dev_prompt += f"""
+            Use the following clinical guideline excerpts to ground your answer.
+            Prefer information from these excerpts over your general knowledge when relevant.
+            If the excerpts do not address the question, rely on your clinical expertise.
+
+            --- GUIDELINE EXCERPTS ---
+            {rag_context}
+            --- END EXCERPTS ---
+            """
         dev_prompt += self.prompts.question_prompt
-            
-        
-        f"Question: {question}"
+
+        messages: list[dict] = [
+            {"role": "system", "content": self.prompts.system_prompt},
+            {"role": "developer", "content": dev_prompt},
+        ]
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": question})
+
         response = client.responses.create(
             model=self.model,
-            input=[
-                {"role": "system", "content": f"{self.prompts.system_prompt}"},
-                {"role": "developer", "content": f"{dev_prompt}"},
-                {"role": "user", "content": question},
-            ]
+            input=messages,  # type: ignore[arg-type]
         )
         return response.output_text
     
