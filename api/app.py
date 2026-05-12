@@ -1,26 +1,37 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-
-from api.db import init_db
+from api.routes.auth_routes import router as auth_router
 from api.routes.ai_routes import router as ai_router
 from api.routes.chat_routes import router as chat_router
 from api.routes.patient_routes import router as patient_router
 from api.routes.mimic_routes import router as mimic_router
 from api.routes.evaluation_routes import router as evaluation_router
 from api.routes.benchmark_routes import router as benchmark_router
+from api.routes.pipeline_routes import router as pipeline_router
+from api.routes.documentation_routes import router as documentation_router
 
-from scripts.init_mimic_db import connect, connect_db
+from api.db import init_db
+from api.rag_store import init_rag_store
+from api.drug_db_store import init_drug_db_store
 
 
 API_PREFIX = "/hp_proto/api"
 
 
-def create_app() -> FastAPI:
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
     init_db()
-    connect_db()
+    init_rag_store()
+    init_drug_db_store()
+    yield
+
+
+def create_app() -> FastAPI:
     api_router = APIRouter(prefix=API_PREFIX)
 
     app = FastAPI(
@@ -29,6 +40,7 @@ def create_app() -> FastAPI:
         docs_url=f"{API_PREFIX}/swagger",
         redoc_url=f"{API_PREFIX}/redoc",
         openapi_url=f"{API_PREFIX}/openapi.json",
+        lifespan=_lifespan,
     )
 
     app.add_middleware(
@@ -39,12 +51,14 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    api_router.include_router(auth_router)
     api_router.include_router(patient_router)
+    api_router.include_router(documentation_router)
     api_router.include_router(chat_router)
-    api_router.include_router(ai_router)
     api_router.include_router(mimic_router)
     api_router.include_router(evaluation_router)
     api_router.include_router(benchmark_router)
+    api_router.include_router(pipeline_router)
 
     @api_router.get("/health")
     def health():

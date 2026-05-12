@@ -18,8 +18,8 @@ switch_to_app_context()
 
 # Import models to ensure they're registered
 from api.models import (
-    Base, User, StaffProfile, Patient, PatientFile,
-    PatientHistoryEntry, Chat, Message, MedDocument
+    Base, User, Staff, Patient, PatientFile,
+    PatientHistoryEntry, ChatMessage, MedDocument
 )
 from api.config import get_database_connection_url
 
@@ -37,7 +37,7 @@ def confirm_migration():
     print(f"Source:      {SQLITE_URL}")
     print(f"Destination: {POSTGRES_URL}")
     print()
-    print("⚠️  WARNING: This will:")
+    print("WARNING: This will:")
     print("   1. Create all tables in PostgreSQL")
     print("   2. Copy all data from SQLite to PostgreSQL")
     print("   3. Existing PostgreSQL data will be preserved (append mode)")
@@ -49,7 +49,7 @@ def confirm_migration():
 
 def create_postgres_schema(pg_engine):
     """Create all tables in PostgreSQL."""
-    print("\n📋 Creating PostgreSQL schema...")
+    print("\nCreating PostgreSQL schema...")
 
     # Create schemas (to separate app data from MIMIC data)
     with pg_engine.connect() as conn:
@@ -98,14 +98,14 @@ def migrate_table(sqlite_session, pg_session, model_class, sqlite_table_name=Non
 
     except Exception as e:
         pg_session.rollback()
-        print(f"✗ Error: {e}")
+        print(f"Error: {e}")
         import traceback
         traceback.print_exc()
         return 0
 
 def verify_migration(sqlite_engine, pg_engine):
     """Verify row counts match."""
-    print("\n🔍 Verifying migration...")
+    print("\nVerifying migration...")
 
     # Check if app schema exists
     with pg_engine.connect() as conn:
@@ -113,9 +113,9 @@ def verify_migration(sqlite_engine, pg_engine):
             "SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'app'"
         ))
         if not result.fetchone():
-            print("   ✗ 'app' schema not found in PostgreSQL")
+            print("   'app' schema not found in PostgreSQL")
             return False
-        print("   ✓ Schema 'app' exists")
+        print("   Schema 'app' exists")
 
     sqlite_inspector = inspect(sqlite_engine)
     pg_inspector = inspect(pg_engine)
@@ -130,10 +130,10 @@ def verify_migration(sqlite_engine, pg_engine):
     table_mapping = {
         'users': 'users',
         'staff_profiles': 'staff_profiles',
-        'patients': 'app_patients',  # Renamed in PostgreSQL
+        'patients': 'patient_profiles',
         'patient_files': 'patient_files',
         'patient_history': 'patient_history',
-        'chats': 'chats',
+        'chat_message': 'chats',
         'messages': 'messages',
         'med_documents': 'med_documents'
     }
@@ -168,7 +168,7 @@ def verify_migration(sqlite_engine, pg_engine):
                     all_match = False
 
             except Exception as e:
-                print(f"   ✗ {sqlite_table}: Error - {e}")
+                print(f"   {sqlite_table}: Error - {e}")
                 all_match = False
 
         return all_match
@@ -211,13 +211,12 @@ def main():
     # Migrate tables in dependency order
     migration_order = [
         (User, 'users'),           # No dependencies
-        (StaffProfile, 'staff_profiles'),   # Depends on User
-        (Patient, 'patients'),        # Depends on User - SQLite uses 'patients', PG uses 'app_patients'
+        (Staff, 'staff_profiles'),   # Depends on User
+        (Patient, 'patient_profiles'),        # Depends on User - SQLite uses 'patients', PG uses 'app_patients'
         (PatientFile, 'patient_files'),    # Depends on Patient
         (PatientHistoryEntry, 'patient_history'),  # Depends on Patient
         (MedDocument, 'med_documents'),    # Depends on User and Patient
-        (Chat, 'chats'),           # Depends on User
-        (Message, 'messages'),        # Depends on Chat
+        (ChatMessage, 'chats'),           # Depends on User
     ]
 
     with SessionSQLite() as sqlite_session, SessionPG() as pg_session:
@@ -231,12 +230,12 @@ def main():
 
     # Verify migration
     if verify_migration(sqlite_engine, pg_engine):
-        print("\n✓ Verification successful! All data migrated correctly.")
+        print("\n Verification successful! All data migrated correctly.")
     else:
-        print("\n⚠️  Verification warning: Some row counts don't match.")
+        print("\n  Verification warning: Some row counts don't match.")
         print("    This might be normal if PostgreSQL already had data.")
 
-    print("\n📝 Next steps:")
+    print("\nNext steps:")
     print("   1. Test your application with PostgreSQL")
     print("   2. If everything works, you can backup/remove the SQLite database:")
     print(f"      mv .output/application.db .output/application.db.backup")
@@ -246,10 +245,10 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n⚠️  Migration cancelled by user")
+        print("\n\nMigration cancelled by user")
         sys.exit(1)
     except Exception as e:
-        print(f"\n\n✗ Unexpected error: {e}")
+        print(f"\n\nUnexpected error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

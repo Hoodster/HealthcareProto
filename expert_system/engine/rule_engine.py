@@ -17,7 +17,8 @@ from expert_system.rules.renal_rules import (
 from expert_system.rules.interaction_rules import (
     QTProlongingDrugInteractionRule,
     CYPInhibitorInteractionRule,
-    BetaBlockerInteractionRule
+    BetaBlockerInteractionRule,
+    DatabaseDrugInteractionRule,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ class RuleEngine:
             QTProlongingDrugInteractionRule(),
             CYPInhibitorInteractionRule(),
             BetaBlockerInteractionRule(),
+            DatabaseDrugInteractionRule(),
         ]
 
     def add_rule(self, rule: BaseRule) -> None:
