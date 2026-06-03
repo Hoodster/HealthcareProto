@@ -30,7 +30,12 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql://mimic_user:mimic_password@postgres:5432/mimic_demo}
+      DB_URL: ${DOCKER_DB_URL:-postgresql://mimic_user:mimic_password@postgres:5432/mimic_demo}
+      API_OPENAI: ${API_OPENAI:-}
+      AZURE_KEYVAULT_URL: ${AZURE_KEYVAULT_URL:-}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET:-}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
       DB_HOST: ${DOCKER_DB_HOST:-postgres}
       DB_PORT: ${DOCKER_DB_PORT:-5432}
       DB_NAME: ${POSTGRES_DB:-mimic_demo}

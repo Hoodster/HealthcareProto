@@ -1,0 +1,36 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Large data source files (DrugBank XML, MIMIC downloads, etc.)
+.sources/
+
+# Build output / SQLite fallback DB
+.output/
+
+# Git & IDE
+.git/
+.github/
+.vscode/
+.DS_Store
+
+# Azure dev tooling (not needed in image)
+.azure/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Environment files (secrets must not be baked into the image)
+.env
+*.env
+
+# Examples / notebooks
+.examples/
