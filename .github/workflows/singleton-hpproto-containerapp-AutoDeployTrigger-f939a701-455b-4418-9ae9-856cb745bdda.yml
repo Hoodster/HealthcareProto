@@ -35,15 +35,12 @@ jobs:
         uses: azure/container-apps-deploy-action@v2
         with:
           appSourcePath: ${{ github.workspace }}
-          _dockerfilePathKey_: _dockerfilePath_
-          _targetLabelKey_: _targetLabel_
-          registryUrl: 
-          registryUsername: ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_REGISTRY_USERNAME }}
-          registryPassword: ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_REGISTRY_PASSWORD }}
+          dockerfilePath: Dockerfile
+          acrName: ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_ACR_NAME }}
+          acrUsername: ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_ACR_USERNAME }}
+          acrPassword: ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_ACR_PASSWORD }}
           containerAppName: singleton-hpproto-containerapp
           resourceGroup: finalproject
-          imageToBuild: default/[parameters('containerAppName')]:${{ github.sha }}
-          _buildArgumentsKey_: |
-            _buildArgumentsValues_
+          imageToBuild: ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_ACR_NAME }}.azurecr.io/singleton-hpproto-containerapp:${{ github.sha }}
 
 
