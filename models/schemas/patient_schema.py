@@ -51,3 +51,11 @@ class PatientHistoryOut(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+
+class DocumentProcessOut(BaseModel):
+    doc_id: int
+    patient_id: str
+    filename: str
+    entries_created: int
+    entries: list[PatientHistoryOut]

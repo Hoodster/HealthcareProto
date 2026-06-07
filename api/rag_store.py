@@ -17,7 +17,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
@@ -80,6 +80,19 @@ def init_rag_store(json_path: Optional[Path] = None) -> None:
     _store = store
     _embedder = embedder
     log.info("RAG store loaded: %d chunks from %s", len(chunks), path.name)
+
+
+def get_rag_status() -> dict[str, Any]:
+    """Return current RAG store readiness for health checks and diagnostics."""
+    path = _DEFAULT_JSON
+    status: dict[str, Any] = {
+        "enabled": _store is not None and _embedder is not None,
+        "knowledge_file": str(path),
+        "knowledge_file_exists": path.exists(),
+    }
+    if _store is not None:
+        status.update(_store.get_stats())
+    return status
 
 
 def retrieve_context(query: str, top_k: int = 5) -> str:

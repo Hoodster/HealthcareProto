@@ -17,8 +17,11 @@ Steps:
 from __future__ import annotations
 
 import argparse
+import io
+import json
 import logging
 import sys
+import time
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -29,17 +32,33 @@ if str(_PROJECT_ROOT) not in sys.path:
 from dotenv import load_dotenv
 load_dotenv(_PROJECT_ROOT / ".env")
 
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
-from api.db import engine            # uses DB_URL from env / config
-from api.models import Drug, DrugInteraction
+from api.config import get_database_connection_url
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 log = logging.getLogger(__name__)
+
+_PG_CONNECT_ARGS = {
+    "keepalives": 1,
+    "keepalives_idle": 30,
+    "keepalives_interval": 10,
+    "keepalives_count": 5,
+    "connect_timeout": 60,
+}
+
+
+def _make_engine():
+    return create_engine(
+        get_database_connection_url(),
+        future=True,
+        pool_pre_ping=True,
+        connect_args=_PG_CONNECT_ARGS,
+    )
 
 NS = "http://www.drugbank.ca"
 
@@ -126,12 +145,27 @@ def _parse_drugs(xml_path: Path) -> tuple[dict[str, dict], list[dict]]:
 
     return drugs, raw_interactions
 
+def _execute_with_retry(session: Session, stmt, params, *, label: str) -> None:
+    for attempt in range(1, 4):
+        try:
+            session.execute(stmt, params)
+            session.commit()
+            return
+        except Exception as exc:
+            session.rollback()
+            if attempt == 3:
+                raise
+            log.warning("%s failed (attempt %d/3): %s — retrying", label, attempt, exc)
+            time.sleep(5 * attempt)
+
+
 def _seed_drugs(session: Session, drugs: dict[str, dict], batch_size: int) -> int:
     inserted = 0
     items = list(drugs.values())
     for i in range(0, len(items), batch_size):
         batch = items[i : i + batch_size]
-        session.execute(
+        _execute_with_retry(
+            session,
             text(
                 """
                 INSERT INTO app.drugs (drugbank_id, name, description)
@@ -140,8 +174,8 @@ def _seed_drugs(session: Session, drugs: dict[str, dict], batch_size: int) -> in
                 """
             ),
             batch,
+            label="drugs batch",
         )
-        session.commit()
         inserted += len(batch)
         log.info("  drugs: inserted batch %d/%d", min(i + batch_size, len(items)), len(items))
     return inserted
@@ -164,7 +198,8 @@ def _seed_interactions(
     inserted = 0
     for i in range(0, len(valid), batch_size):
         batch = valid[i : i + batch_size]
-        session.execute(
+        _execute_with_retry(
+            session,
             text(
                 """
                 INSERT INTO app.drug_interactions (drug_a_id, drug_b_id, description)
@@ -173,8 +208,8 @@ def _seed_interactions(
                 """
             ),
             batch,
+            label="interactions batch",
         )
-        session.commit()
         inserted += len(batch)
         log.info(
             "  interactions: inserted batch %d/%d",
@@ -184,15 +219,31 @@ def _seed_interactions(
     return inserted, skipped
 
 
-def seed(xml_path: Path, batch_size: int) -> None:
-    if not xml_path.is_file():
-        log.error("DrugBank XML not found: %s", xml_path)
-        sys.exit(1)
+def seed(xml_path: Path, batch_size: int, cache_path: Path | None) -> None:
+    if cache_path and cache_path.is_file():
+        log.info("Loading cached parse from %s …", cache_path)
+        cached = json.loads(cache_path.read_text(encoding="utf-8"))
+        drugs = cached["drugs"]
+        raw_interactions = cached["raw_interactions"]
+        log.info("Loaded %d drugs, %d raw interactions", len(drugs), len(raw_interactions))
+    else:
+        if not xml_path.is_file():
+            log.error("DrugBank XML not found: %s", xml_path)
+            sys.exit(1)
 
-    log.info("Parsing %s …", xml_path)
-    drugs, raw_interactions = _parse_drugs(xml_path)
-    log.info("Parsed %d drugs, %d raw interactions", len(drugs), len(raw_interactions))
+        log.info("Parsing %s …", xml_path)
+        drugs, raw_interactions = _parse_drugs(xml_path)
+        log.info("Parsed %d drugs, %d raw interactions", len(drugs), len(raw_interactions))
 
+        if cache_path:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(
+                json.dumps({"drugs": drugs, "raw_interactions": raw_interactions}),
+                encoding="utf-8",
+            )
+            log.info("Wrote parse cache to %s", cache_path)
+
+    engine = _make_engine()
     with Session(engine) as session:
         log.info("Seeding app.drugs …")
         _seed_drugs(session, drugs, batch_size)
@@ -225,9 +276,15 @@ def _parse_args() -> argparse.Namespace:
         default=500,
         help="INSERT batch size (default: 500)",
     )
+    parser.add_argument(
+        "--cache",
+        type=Path,
+        default=_PROJECT_ROOT / ".output" / "drugbank_parsed.json",
+        help="Cache parsed DrugBank JSON to skip re-parsing on retry",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = _parse_args()
-    seed(xml_path=args.xml, batch_size=args.batch)
+    seed(xml_path=args.xml, batch_size=args.batch, cache_path=args.cache)

@@ -16,7 +16,7 @@ from api.routes.pipeline_routes import router as pipeline_router
 from api.routes.documentation_routes import router as documentation_router
 
 from api.db import init_db
-from api.rag_store import init_rag_store
+from api.rag_store import get_rag_status, init_rag_store
 from api.drug_db_store import init_drug_db_store
 
 
@@ -61,8 +61,15 @@ def create_app() -> FastAPI:
     api_router.include_router(pipeline_router)
 
     @api_router.get("/health")
-    def health():
-        return {"status": "ok"}
+    def health(verify_rag: bool = False):
+        rag = get_rag_status()
+        if verify_rag and rag.get("enabled"):
+            from api.rag_store import retrieve_context
+
+            rag["retrieval_ok"] = bool(
+                retrieve_context("amiodarone QTc prolongation", top_k=1)
+            )
+        return {"status": "ok", "rag": rag}
 
     app.include_router(api_router)
 

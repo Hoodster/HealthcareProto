@@ -31,16 +31,22 @@ jobs:
           tenant-id: ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_AZURE_SUBSCRIPTION_ID }}
 
-      - name: Build and push container image to registry
-        uses: azure/container-apps-deploy-action@v2
-        with:
-          appSourcePath: ${{ github.workspace }}
-          dockerfilePath: Dockerfile
-          acrName: ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_ACR_NAME }}
-          acrUsername: ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_ACR_USERNAME }}
-          acrPassword: ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_ACR_PASSWORD }}
-          containerAppName: singleton-hpproto-containerapp
-          resourceGroup: finalproject
-          imageToBuild: ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_ACR_NAME }}.azurecr.io/singleton-hpproto-containerapp:${{ github.sha }}
+      - name: Build and push container image to ACR
+        run: |
+          az acr build \
+            --registry ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_ACR_NAME }} \
+            --image singleton-hpproto-containerapp:${{ github.sha }} \
+            --image singleton-hpproto-containerapp:latest \
+            --file Dockerfile .
+
+      - name: Deploy to App Service
+        run: |
+          az webapp config container set \
+            --name azaphtn4tglr3jlgw \
+            --resource-group finalproject \
+            --docker-custom-image-name ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_ACR_NAME }}.azurecr.io/singleton-hpproto-containerapp:${{ github.sha }} \
+            --docker-registry-server-url https://${{ secrets.SINGLETONHPPROTOCONTAINERAPP_ACR_NAME }}.azurecr.io \
+            --docker-registry-server-username ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_ACR_USERNAME }} \
+            --docker-registry-server-password ${{ secrets.SINGLETONHPPROTOCONTAINERAPP_ACR_PASSWORD }}
 
 

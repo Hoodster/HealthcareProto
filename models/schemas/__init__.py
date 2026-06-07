@@ -17,6 +17,7 @@ from .patient_schema import (
     PatientFileOut,
     PatientHistoryCreate,
     PatientHistoryOut,
+    DocumentProcessOut,
     PatientOut,
     PatientSex
 )
@@ -41,5 +42,6 @@ __all__ = [
     "PatientFileOut",
     "PatientHistoryCreate",
     "PatientHistoryOut",
+    "DocumentProcessOut",
     "PatientSex",
 ]

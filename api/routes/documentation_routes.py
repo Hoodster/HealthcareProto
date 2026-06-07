@@ -11,6 +11,8 @@ from api.db import get_db_session
 from api.models import MedDocument, User
 from api.services.mimic_service import get_heart_patients, get_all_patients, build_mimic_patient_context
 from api.services.patient_service import PatientService
+from api.services.document_processing_service import PatientDocumentProcessor
+from models.schemas.patient_schema import DocumentProcessOut, PatientHistoryOut
 from models.schemas.pipeline_schema import CardiacPatientSummary
 from api import models
 from datetime import datetime
@@ -62,8 +64,9 @@ class DocumentUploadOut(BaseModel):
     doc_id: int
     filename: str
     document_type: str
-    patient_id: str
+    patient_id: str | None = None
     char_count: int
+    history_entries_created: int = 0
 
 
 ChunkingStrategyParam = Literal["sliding_window", "sentence", "paragraph"]
@@ -100,12 +103,21 @@ def upload_document(
     strategy: ChunkingStrategyParam = Query("sliding_window", description="Chunking strategy: sliding_window | sentence | paragraph"),
     chunk_size: int = Query(default=500, ge=100, le=4000, description="Target chunk size in characters"),
     overlap: int = Query(default=50, ge=0, le=500, description="Overlap between consecutive chunks (sliding_window only)"),
+    update_history: bool = Query(
+        default=False,
+        description="When uploading patient_docfile, extract history entries into patient_history",
+    ),
+    replace_history_from_doc: bool = Query(
+        default=False,
+        description="When re-processing, remove prior entries tagged with this document id",
+    ),
 ):
     """
     Upload a document (.pdf / .txt / .md).
 
     - **patient_docfile**: stores extracted text in `app.med_documents` linked to a patient.
-      Requires `patient_id` query param.
+      Requires `patient_id` query param. Set `update_history=true` to extract structured
+      history entries (diagnoses, labs, medications) into `patient_history`.
     - **guideline**: chunks the text (sliding window) and returns the chunk list.
       No DB write — use the chunks to seed a vector store.
     """
@@ -135,12 +147,23 @@ def upload_document(
         db.commit()
         db.refresh(doc)
 
+        history_entries_created = 0
+        if update_history:
+            result = PatientDocumentProcessor.process_med_document(
+                db,
+                doc.id,
+                user,
+                replace_existing_from_doc=replace_history_from_doc,
+            )
+            history_entries_created = result.entries_created
+
         return DocumentUploadOut(
             doc_id=doc.id,
             filename=doc.filename,
             document_type=doc.document_type,
             patient_id=doc.patient_id,
             char_count=len(text),
+            history_entries_created=history_entries_created,
         )
 
     # document_type == "guideline"
@@ -202,6 +225,36 @@ def upload_document(
         ],
     )
 
+
+@router.post("/{doc_id}/process-history", response_model=DocumentProcessOut)
+def process_document_history(
+    doc_id: int,
+    user: HPCurrentUser,
+    db: HPDbSession,
+    replace_history_from_doc: bool = Query(
+        default=False,
+        description="Remove prior history entries extracted from this document before re-processing",
+    ),
+):
+    """
+    Extract structured clinical entries from an uploaded patient document
+    and append them to `patient_history`.
+    """
+    result = PatientDocumentProcessor.process_med_document(
+        db,
+        doc_id,
+        user,
+        replace_existing_from_doc=replace_history_from_doc,
+    )
+    history = PatientService.list_history(db, result.patient_id)
+    created = [entry for entry in history if entry.id in result.history_ids]
+    return DocumentProcessOut(
+        doc_id=result.doc_id,
+        patient_id=result.patient_id,
+        filename=result.filename,
+        entries_created=result.entries_created,
+        entries=[PatientHistoryOut.model_validate(e) for e in created],
+    )
 
 
 @router.get("")
