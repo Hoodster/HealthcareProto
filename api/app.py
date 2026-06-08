@@ -15,9 +15,13 @@ from api.routes.benchmark_routes import router as benchmark_router
 from api.routes.pipeline_routes import router as pipeline_router
 from api.routes.documentation_routes import router as documentation_router
 
-from api.db import init_db
-from api.rag_store import get_rag_status, init_rag_store
+import logging
+
+from api.db import SessionLocal, init_db
+from api.rag_store import get_rag_status, init_rag_store, sync_patient_documents
 from api.drug_db_store import init_drug_db_store
+
+log = logging.getLogger(__name__)
 
 
 API_PREFIX = "/hp_proto/api"
@@ -28,6 +32,20 @@ async def _lifespan(app: FastAPI):
     init_db()
     init_rag_store()
     init_drug_db_store()
+    try:
+        db = SessionLocal()
+        try:
+            sync_stats = sync_patient_documents(db)
+            if sync_stats["documents"]:
+                log.info(
+                    "RAG patient docs synced: %d documents, %d chunks",
+                    sync_stats["documents"],
+                    sync_stats["chunks"],
+                )
+        finally:
+            db.close()
+    except Exception as exc:
+        log.warning("RAG patient document sync skipped: %s", exc)
     yield
 
 

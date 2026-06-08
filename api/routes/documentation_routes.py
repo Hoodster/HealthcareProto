@@ -4,6 +4,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user, HPCurrentUser, HPDbSession
@@ -12,6 +13,7 @@ from api.models import MedDocument, User
 from api.services.mimic_service import get_heart_patients, get_all_patients, build_mimic_patient_context
 from api.services.patient_service import PatientService
 from api.services.document_processing_service import PatientDocumentProcessor
+from api.rag_store import index_patient_document
 from models.schemas.patient_schema import DocumentProcessOut, PatientHistoryOut
 from models.schemas.pipeline_schema import CardiacPatientSummary
 from api import models
@@ -67,6 +69,18 @@ class DocumentUploadOut(BaseModel):
     patient_id: str | None = None
     char_count: int
     history_entries_created: int = 0
+    rag_chunks_indexed: int = 0
+
+
+class PatientDocumentOut(BaseModel):
+    doc_id: int
+    filename: str
+    patient_id: str
+    char_count: int
+    created_at: datetime
+    uploaded_by: str
+
+    model_config = {"from_attributes": True}
 
 
 ChunkingStrategyParam = Literal["sliding_window", "sentence", "paragraph"]
@@ -104,8 +118,12 @@ def upload_document(
     chunk_size: int = Query(default=500, ge=100, le=4000, description="Target chunk size in characters"),
     overlap: int = Query(default=50, ge=0, le=500, description="Overlap between consecutive chunks (sliding_window only)"),
     update_history: bool = Query(
-        default=False,
-        description="When uploading patient_docfile, extract history entries into patient_history",
+        default=True,
+        description="Extract structured history entries into patient_history",
+    ),
+    index_rag: bool = Query(
+        default=True,
+        description="Chunk and index document for patient-specific RAG retrieval",
     ),
     replace_history_from_doc: bool = Query(
         default=False,
@@ -115,9 +133,8 @@ def upload_document(
     """
     Upload a document (.pdf / .txt / .md).
 
-    - **patient_docfile**: stores extracted text in `app.med_documents` linked to a patient.
-      Requires `patient_id` query param. Set `update_history=true` to extract structured
-      history entries (diagnoses, labs, medications) into `patient_history`.
+    - **patient_docfile**: stores text in `med_documents`, indexes for RAG, and by default
+      updates `patient_history` (diagnoses, labs, medications).
     - **guideline**: chunks the text (sliding window) and returns the chunk list.
       No DB write — use the chunks to seed a vector store.
     """
@@ -157,6 +174,15 @@ def upload_document(
             )
             history_entries_created = result.entries_created
 
+        rag_chunks_indexed = 0
+        if index_rag:
+            rag_chunks_indexed = index_patient_document(
+                text,
+                patient_id=patient_id,
+                med_doc_id=doc.id,
+                filename=doc.filename,
+            )
+
         return DocumentUploadOut(
             doc_id=doc.id,
             filename=doc.filename,
@@ -164,6 +190,7 @@ def upload_document(
             patient_id=doc.patient_id,
             char_count=len(text),
             history_entries_created=history_entries_created,
+            rag_chunks_indexed=rag_chunks_indexed,
         )
 
     # document_type == "guideline"
@@ -226,6 +253,63 @@ def upload_document(
     )
 
 
+def _authorize_patient_docs(patient_id: str, user: User, db: Session) -> None:
+    patient = PatientService.get_by_id(db, patient_id)
+    if not user.staff and patient.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access documents for this patient")
+
+
+@router.get("/patient/{patient_id}", response_model=list[PatientDocumentOut])
+def list_patient_documents(
+    patient_id: str,
+    user: HPCurrentUser,
+    db: HPDbSession,
+):
+    """List uploaded documents for a patient."""
+    _authorize_patient_docs(patient_id, user, db)
+    stmt = (
+        select(MedDocument)
+        .where(
+            MedDocument.patient_id == patient_id,
+            MedDocument.document_type == "patient_docfile",
+        )
+        .order_by(MedDocument.created_at.desc())
+    )
+    docs = list(db.execute(stmt).scalars().all())
+    return [
+        PatientDocumentOut(
+            doc_id=d.id,
+            filename=d.filename,
+            patient_id=d.patient_id,
+            char_count=len(d.content_text or ""),
+            created_at=d.created_at,
+            uploaded_by=d.uploaded_by,
+        )
+        for d in docs
+    ]
+
+
+@router.get("/{doc_id}", response_model=PatientDocumentOut)
+def get_patient_document(
+    doc_id: int,
+    user: HPCurrentUser,
+    db: HPDbSession,
+):
+    """Get metadata for an uploaded patient document."""
+    doc = db.get(MedDocument, doc_id)
+    if doc is None or doc.document_type != "patient_docfile":
+        raise HTTPException(status_code=404, detail="Document not found")
+    _authorize_patient_docs(doc.patient_id, user, db)
+    return PatientDocumentOut(
+        doc_id=doc.id,
+        filename=doc.filename,
+        patient_id=doc.patient_id,
+        char_count=len(doc.content_text or ""),
+        created_at=doc.created_at,
+        uploaded_by=doc.uploaded_by,
+    )
+
+
 @router.post("/{doc_id}/process-history", response_model=DocumentProcessOut)
 def process_document_history(
     doc_id: int,
@@ -235,17 +319,29 @@ def process_document_history(
         default=False,
         description="Remove prior history entries extracted from this document before re-processing",
     ),
+    reindex_rag: bool = Query(default=True, description="Re-index document chunks for RAG"),
 ):
     """
     Extract structured clinical entries from an uploaded patient document
-    and append them to `patient_history`.
+    and append them to `patient_history`. Optionally re-index for RAG.
     """
+    doc = db.get(MedDocument, doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
     result = PatientDocumentProcessor.process_med_document(
         db,
         doc_id,
         user,
         replace_existing_from_doc=replace_history_from_doc,
     )
+    if reindex_rag and doc.content_text:
+        index_patient_document(
+            doc.content_text,
+            patient_id=doc.patient_id,
+            med_doc_id=doc.id,
+            filename=doc.filename,
+        )
     history = PatientService.list_history(db, result.patient_id)
     created = [entry for entry in history if entry.id in result.history_ids]
     return DocumentProcessOut(

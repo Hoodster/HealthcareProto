@@ -1,12 +1,5 @@
 """Configuration for expert system rules and thresholds."""
 
-# QTc thresholds (milliseconds)
-QTC_CRITICAL_THRESHOLD = 500  # Absolute contraindication
-QTC_MODERATE_THRESHOLD = 470  # Dose reduction + monitoring
-QTC_MILD_THRESHOLD = 450      # Monitoring recommended
-QTC_NORMAL_MALE = 450
-QTC_NORMAL_FEMALE = 460
-
 # eGFR thresholds (mL/min/1.73m²)
 EGFR_SEVERE_THRESHOLD = 30    # Stage 4-5 CKD
 EGFR_MODERATE_THRESHOLD = 60  # Stage 3 CKD
@@ -61,7 +54,6 @@ ELDERLY_AGE_THRESHOLD = 75
 VERY_ELDERLY_AGE_THRESHOLD = 85
 
 # Enable/disable rule categories
-ENABLE_QTC_RULES = True
 ENABLE_RENAL_RULES = True
 ENABLE_INTERACTION_RULES = True
 ENABLE_AGE_RULES = True

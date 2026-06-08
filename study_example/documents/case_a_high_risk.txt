@@ -1,0 +1,28 @@
+KARTA INFORMACYJNA LECZENIA SZPITALNEGO
+Oddział Kardiologii — Wypis z 15.03.2025
+
+Pacjent: mężczyzna, 74 lata
+Rozpoznanie główne: migotanie przedsionków (I48)
+
+Choroby współistniejące:
+- nadciśnienie tętnicze
+- przewlekła niewydolność nerek, stadium 4
+
+Leczenie wypisowe:
+1. Amiodarone 200 mg 1x dziennie
+2. Clarithromycin 500 mg 2x dziennie (dokończenie antybiotykoterapii — zapalenie oskrzeli)
+3. Furosemid 40 mg rano
+4. Metoprolol 50 mg 2x dziennie
+
+Wyniki badań laboratoryjnych (14.03.2025):
+- Kreatynina: 2.4 mg/dl
+- eGFR=28 mL/min/1.73m²
+
+Badanie EKG (13.03.2025):
+- Rytm: migotanie przedsionków, HR 88/min
+- QTc=495 ms
+
+Zalecenia:
+- Kontrola kreatyniny za 7 dni
+- Unikać dodatkowych leków wydłużających QT
+- Konsultacja nefrologiczna

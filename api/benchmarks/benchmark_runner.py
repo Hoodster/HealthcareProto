@@ -100,7 +100,7 @@ class BenchmarkRunner:
         )
         user_msg = (
             f"Patient: age {case.patient.age}, gender {case.patient.gender}, "
-            f"QTc {case.patient.qtc} ms, eGFR {case.patient.egfr} mL/min/1.73m². "
+            f"eGFR {case.patient.egfr} mL/min/1.73m². "
             f"Medications: {med_line}. "
             f"Conditions: {', '.join(case.patient.conditions) or 'none'}. "
             f"Question: {case.question}"
@@ -130,8 +130,13 @@ class BenchmarkRunner:
         # RAG — retrieve relevant guideline passages for the question
         rag_context: str = ""
         try:
-            from api.rag_store import retrieve_context
-            rag_context = retrieve_context(case.question, top_k=4)
+            from api.rag_store import build_rag_query, retrieve_context
+            rag_query = build_rag_query(case.question, case.patient)
+            rag_context = retrieve_context(
+                rag_query,
+                top_k=4,
+                patient_id=case.patient.patient_id,
+            )
         except Exception:
             pass
 
@@ -149,7 +154,7 @@ class BenchmarkRunner:
         med_line = ", ".join(case.patient.medications) or "none"
         user_msg = (
             f"Patient: age {case.patient.age}, gender {case.patient.gender}, "
-            f"QTc {case.patient.qtc} ms, eGFR {case.patient.egfr} mL/min/1.73m². "
+            f"eGFR {case.patient.egfr} mL/min/1.73m². "
             f"Medications: {med_line}. "
             f"Conditions: {', '.join(case.patient.conditions) or 'none'}. "
             f"Question: {case.question}"

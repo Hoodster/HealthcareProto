@@ -47,7 +47,7 @@ complication, patient_education, lifestyle, consent, external_doc_issued,
 health_history, note
 
 Formatting rules for notes (important — downstream parsing depends on this):
-- lab_result: include numeric values as "eGFR=45" or "QTc=480" when present
+- lab_result: include numeric values as "eGFR=45" when present
 - prescription / medication_change / anticoagulation: start with generic drug name, e.g. "metoprolol 50 mg daily"
 - diagnosis / symptom / episode_af / health_history: plain clinical description
 

@@ -51,10 +51,9 @@ def print_decision(patient_name: str, decision: DecisionContext):
 
 
 def test_high_risk_cardiac():
-    """Test case: High QTc + QT-prolonging drug."""
+    """Test case: QT-prolonging drug with interaction alerts."""
     patient = PatientContext(
         patient_id="TEST_001",
-        qtc=520,
         egfr=75,
         medications=["amiodarone", "metoprolol", "aspirin"],
         conditions=["atrial fibrillation", "hypertension"],
@@ -67,15 +66,15 @@ def test_high_risk_cardiac():
     decision = engine.evaluate(patient)
     print_decision("High-Risk Cardiac Patient", decision)
 
-    assert decision.contraindicated, "Should be contraindicated due to QTc > 500"
-    assert decision.risk_score >= 65, "Risk score should be high"
+    critical_alerts = [a for a in decision.alerts if a.severity == AlertSeverity.CRITICAL]
+    assert len(critical_alerts) >= 1, "Should have critical interaction alerts"
+    assert decision.risk_score >= 40, "Risk score should be elevated"
 
 
 def test_severe_renal_impairment():
     """Test case: Severe CKD requiring major dose adjustment."""
     patient = PatientContext(
         patient_id="TEST_002",
-        qtc=430,
         egfr=25,
         medications=["lisinopril", "metformin", "furosemide"],
         conditions=["chronic kidney disease stage 4", "diabetes"],
@@ -96,7 +95,6 @@ def test_low_risk_patient():
     """Test case: Normal patient, no contraindications."""
     patient = PatientContext(
         patient_id="TEST_003",
-        qtc=420,
         egfr=95,
         medications=["aspirin", "atorvastatin"],
         conditions=["hypertension"],
@@ -117,7 +115,6 @@ def test_multiple_risk_factors():
     """Test case: Multiple overlapping risk factors."""
     patient = PatientContext(
         patient_id="TEST_004",
-        qtc=485,
         egfr=42,
         medications=["clarithromycin", "metoprolol", "ketoconazole", "ondansetron"],
         conditions=["pneumonia", "hypertension", "ckd stage 3"],
@@ -138,7 +135,6 @@ def test_drug_interactions():
     """Test case: Multiple drug-drug interactions."""
     patient = PatientContext(
         patient_id="TEST_005",
-        qtc=460,
         egfr=70,
         medications=["amiodarone", "metoprolol", "verapamil", "clarithromycin"],
         conditions=["atrial fibrillation"],
@@ -158,8 +154,15 @@ def test_drug_interactions():
 def test_batch_evaluation():
     """Test case: Batch evaluation of multiple patients."""
     patients = [
-        PatientContext(patient_id=f"BATCH_{i}", qtc=400 + i*20, egfr=90 - i*10,
-                      medications=[], conditions=[], age=50+i, gender="M", weight=75.0)
+        PatientContext(
+            patient_id=f"BATCH_{i}",
+            egfr=90 - i * 10,
+            medications=["amiodarone"] if i >= 2 else [],
+            conditions=[],
+            age=50 + i,
+            gender="M",
+            weight=75.0,
+        )
         for i in range(5)
     ]
 
@@ -172,8 +175,10 @@ def test_batch_evaluation():
     print(f"\nEvaluated {len(decisions)} patients:")
     for i, (patient, decision) in enumerate(zip(patients, decisions), 1):
         status = "CONTRA" if decision.contraindicated else "OK"
-        print(f"  {i}. {patient.patient_id}: QTc={patient.qtc}, eGFR={patient.egfr} "
-              f"→ {status} (risk: {decision.risk_score}, alerts: {len(decision.alerts)})")
+        print(
+            f"  {i}. {patient.patient_id}: eGFR={patient.egfr} "
+            f"→ {status} (risk: {decision.risk_score}, alerts: {len(decision.alerts)})"
+        )
 
     assert len(decisions) == len(patients), "Should evaluate all patients"
 

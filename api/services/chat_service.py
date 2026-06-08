@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import Optional, Any
+
+from typing import Optional
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -8,19 +9,25 @@ from sqlalchemy.orm import Session
 
 from api.ai_models import ChatGPTAIModel
 from api.auth import HPDbSession
-from api.rag_store import retrieve_context
+from api.rag_store import build_rag_query, retrieve_context
+from api.services.patient_service import PatientService
 import models.schemas as schemas
 from api.models import ChatMessage, User
 
+
 class ChatService:
-    
+
     @staticmethod
-    def send_chat_message(db: HPDbSession, payload: schemas.MessageIn, current_user: Optional[User] = None) -> ChatMessage:
+    def send_chat_message(
+        db: HPDbSession,
+        payload: schemas.MessageIn,
+        current_user: Optional[User] = None,
+    ) -> ChatMessage:
         if not payload.session_id:
             stmt = select(ChatMessage.session_id).order_by(ChatMessage.created_at.desc()).limit(1)
             result = db.execute(stmt).scalar()
             payload.session_id = result or str(uuid4())
-            
+
         current_user_id = current_user.id if current_user else None
 
         history_stmt = (
@@ -43,13 +50,30 @@ class ChatService:
         )
         db.add(new_question)
 
-        rag_ctx = retrieve_context(payload.content)
-        ai_answer = ChatGPTAIModel().answer(payload.content, history=history, rag_context=rag_ctx or None)
+        patient_ctx = None
+        if payload.patient_id:
+            patient = PatientService.get_by_id(db, payload.patient_id)
+            if current_user and not current_user.staff and patient.user_id != current_user.id:
+                raise HTTPException(status_code=403, detail="Not authorized for this patient")
+            patient_ctx = PatientService.build_patient_context(payload.patient_id, db)
+
+        rag_query = build_rag_query(payload.content, patient_ctx)
+        rag_ctx = retrieve_context(
+            rag_query,
+            top_k=6,
+            patient_id=payload.patient_id,
+        )
+        ai_answer = ChatGPTAIModel().answer(
+            payload.content,
+            patient_data=patient_ctx,
+            history=history,
+            rag_context=rag_ctx or None,
+        )
         new_response = ChatMessage(
-            sender_role="assistant", 
-            content=ai_answer, 
+            sender_role="assistant",
+            content=ai_answer,
             session_id=payload.session_id,
-            user_id=current_user_id
+            user_id=current_user_id,
         )
         db.add(new_response)
         db.commit()

@@ -11,15 +11,11 @@ import models.schemas as schemas
 from api.models import Patient, PatientFile, PatientHistoryEntry, User
 from api.services.ai_service import AIModelService
 
-_QTC_RE = re.compile(r'\bqtc\s*[=:]\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
 _EGFR_RE = re.compile(r'\begfr\s*[=:]\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
 _DOSE_RE = re.compile(r'\b\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|iu)\b', re.IGNORECASE)
 
 _PRESCRIPTION_KINDS = {'prescription', 'medication_change', 'anticoagulation'}
 _CONDITION_KINDS = {'diagnosis', 'symptom', 'episode_af', 'health_history'}
-_ECG_KINDS = {'diagnostic_ecg', 'diagnostic_holter'}
-
-
 class PatientService:
     @staticmethod
     def create_patient_profile(
@@ -164,7 +160,6 @@ class PatientService:
         )
         entries = list(db.execute(stmt).scalars().all())
 
-        qtc = 420.0
         egfr = 90.0
         medications: list[str] = []
         conditions: list[str] = []
@@ -177,14 +172,6 @@ class PatientService:
                 m = _EGFR_RE.search(note)
                 if m and egfr == 90.0:
                     egfr = float(m.group(1))
-                m2 = _QTC_RE.search(note)
-                if m2 and qtc == 420.0:
-                    qtc = float(m2.group(1))
-
-            elif kind in _ECG_KINDS:
-                m = _QTC_RE.search(note)
-                if m and qtc == 420.0:
-                    qtc = float(m.group(1))
 
             elif kind in _PRESCRIPTION_KINDS:
                 # Strip dosage info and take the first token as the drug name
@@ -200,7 +187,6 @@ class PatientService:
 
         return PatientContext(
             patient_id=patient_id,
-            qtc=qtc,
             egfr=egfr,
             medications=medications,
             conditions=conditions,

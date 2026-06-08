@@ -139,9 +139,26 @@ class PipelineService:
         expert_decision = self.rule_engine.evaluate(patient_context)
         expert_alerts = [alert.message for alert in expert_decision.alerts]
         
-        # Step 2: Create temporary RAG index with patient data
-        rag_context = self._create_rag_index(patient_context)
-        
+        # Step 2: Patient summary + vector RAG (guidelines + uploaded docs)
+        from api.rag_store import build_rag_query, retrieve_context
+
+        rag_query = build_rag_query(
+            "cardiac medication safety drug interactions QT prolongation renal dosing contraindications",
+            patient_context,
+        )
+        guideline_context = retrieve_context(
+            rag_query,
+            top_k=5,
+            patient_id=patient_context.patient_id,
+        )
+        patient_summary = self._create_rag_index(patient_context)
+
+        rag_sections = ["# Patient summary\n" + patient_summary]
+        if guideline_context:
+            rag_sections.append("# Retrieved clinical knowledge\n" + guideline_context)
+        rag_context = "\n\n".join(rag_sections)
+        sources_used = (5 if guideline_context else 0) + 4
+
         # Step 3: Format comprehensive prompt with RAG context + Expert alerts
         prompt = "# Retrieved Patient Information:\n\n"
         prompt += rag_context + "\n\n"
@@ -167,7 +184,7 @@ class PipelineService:
         
         return RAGFullResult(
             response=response,
-            sources_used=4,  # cardiac, medications, renal, demographics
+            sources_used=sources_used,
             expert_alerts=expert_alerts,
             detected_risks=detected_risks,
             latency_ms=latency_ms
@@ -211,7 +228,7 @@ class PipelineService:
                      "severe impairment"
         
         documents_content.append(
-            f"Renal Function: eGFR {patient_context.egfr} mL/min/1.73m² ({egfr_status}), QTc {patient_context.qtc} ms"
+            f"Renal Function: eGFR {patient_context.egfr} mL/min/1.73m² ({egfr_status})"
         )
         
         # 4. Demographics
@@ -239,7 +256,6 @@ class PipelineService:
         if patient_context.gender:
             parts.append(f"- Gender: {patient_context.gender}")
         
-        parts.append(f"- QTc: {patient_context.qtc} ms")
         parts.append(f"- eGFR: {patient_context.egfr} mL/min/1.73m²")
         
         if patient_context.conditions:
@@ -291,10 +307,6 @@ class PipelineService:
         # Rule 2: Severe renal impairment
         if patient_context.egfr < 30:
             guideline_violations.append("SEVERE_RENAL_IMPAIRMENT")
-        
-        # Rule 3: Critical QTc
-        if patient_context.qtc > 500:
-            guideline_violations.append("CRITICAL_QTC")
         
         # Warstwa 2: Actual Outcome
         admission = db.get(models.MimicAdmission, hadm_id)

@@ -24,5 +24,8 @@ pgdata/
 # Docker volumes
 docker-volumes/
 
+artifacts/
+.sources/drugbank.xml
+
 # this stupid macOS garbage file
 .DS_Store

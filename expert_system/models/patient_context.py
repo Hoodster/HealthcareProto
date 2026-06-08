@@ -9,8 +9,7 @@ class PatientContext(BaseModel):
     Patient clinical context used for drug safety evaluation.
 
     Attributes:
-        patient_id: Unique identifier for the patient
-        qtc: QTc interval in milliseconds (normal: <450ms men, <460ms women)
+        patient_id: Optional identifier for the patient
         egfr: Estimated glomerular filtration rate in mL/min/1.73m² (normal: >90)
         medications: List of current medications (generic names)
         conditions: List of medical conditions/comorbidities
@@ -20,7 +19,6 @@ class PatientContext(BaseModel):
     """
 
     patient_id: Optional[str] = Field(None, description="Patient identifier")
-    qtc: float = Field(..., ge=0, le=800, description="QTc interval in milliseconds")
     egfr: float = Field(..., ge=0, le=200, description="eGFR in mL/min/1.73m²")
     medications: list[str] = Field(default_factory=list, description="Current medications")
     conditions: list[str] = Field(default_factory=list, description="Medical conditions")
@@ -32,7 +30,6 @@ class PatientContext(BaseModel):
         json_schema_extra = {
             "example": {
                 "patient_id": "P12345",
-                "qtc": 480,
                 "egfr": 45,
                 "medications": ["metoprolol", "lisinopril", "metformin"],
                 "conditions": ["hypertension", "diabetes", "chronic kidney disease"],

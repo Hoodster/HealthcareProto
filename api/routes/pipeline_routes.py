@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from api.db import get_db_session
 from api.auth import get_current_user
 from api.services.pipeline_service import PipelineService
+from api.services.outcome_comparison_service import OutcomeComparisonService, OutcomeComparisonReport
 from models.schemas.pipeline_schema import PipelineComparisonResult
 
 router = APIRouter(
@@ -54,7 +55,7 @@ async def evaluate_mimic_patient(
     **Approach A - Expert System Only:**
     - Pure rule-based evaluation
     - Deterministic, explainable
-    - Based on clinical guidelines (QTc, eGFR, drug interactions)
+    - Based on clinical guidelines (eGFR, drug interactions, QT-prolonging drugs)
     
     **Approach B - GenAI Only:**
     - LLM-based evaluation with patient context
@@ -67,7 +68,7 @@ async def evaluate_mimic_patient(
     - Comprehensive AI synthesis
     
     **Ground Truth (A+B Combined):**
-    - Guideline violations (proxy rules): ≥2 QT drugs, eGFR<30, QTc>500
+    - Guideline violations (proxy rules): ≥2 QT drugs, eGFR<30
     - Actual outcomes (retrospective): hospital_expire_flag, death during treatment
     - Patient is high-risk if either condition is met
     
@@ -119,3 +120,46 @@ async def evaluate_mimic_patient(
             status_code=500,
             detail=f"Error evaluating patient: {str(e)}"
         )
+
+
+@router.get(
+    "/outcome-comparison",
+    response_model=OutcomeComparisonReport,
+    summary="Compare LLM vs RAG against MIMIC in-hospital death outcomes",
+)
+def outcome_comparison(
+    limit: int = Query(default=20, ge=1, le=200),
+    outcome: str = Query(
+        default="all",
+        description="Filter: all | died | survived (MIMIC hospital_expire_flag)",
+    ),
+    approaches: list[str] = Query(
+        default=["genai", "rag_full"],
+        description="Approaches to compare (genai = LLM only, rag_full = RAG+LLM+expert)",
+    ),
+    db: Session = Depends(get_db_session),
+):
+    """
+    Batch comparison for thesis work.
+
+    - **mimic_died**: factual outcome from MIMIC (`hospital_expire_flag`)
+    - **genai_safety_concern / rag_safety_concern**: system signal (see study_example/METHODOLOGY.md)
+
+    Export CSV: `python scripts/run_comparison.py --limit 20`
+    """
+    if outcome not in ("all", "died", "survived"):
+        raise HTTPException(status_code=400, detail="outcome must be all, died, or survived")
+    valid = {"genai", "rag_full"}
+    invalid = set(approaches) - valid
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Invalid approaches: {invalid}")
+
+    try:
+        return OutcomeComparisonService.run(
+            db,
+            limit=limit,
+            approaches=approaches,
+            outcome_filter=outcome,  # type: ignore[arg-type]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -31,7 +31,7 @@ CLINICAL STATUS
 
 RISKS AND FLAGS
 - 1 to 3 bullets
-- focus on QTc prolongation, arrhythmia risk, renal impairment, drug interactions, contraindications, or missing critical data
+- focus on QT-prolonging drugs, arrhythmia risk, renal impairment, drug interactions, contraindications, or missing critical data
 
 MEDICATIONS AND FOLLOW-UP
 - 1 to 3 bullets
@@ -103,7 +103,7 @@ class ChatGPTAIModel(AIModel):
         if patient_data:
             user_msg = (
                 f"Patient: age {patient_data.age}, gender {patient_data.gender}, "
-                f"QTc {patient_data.qtc} ms, eGFR {patient_data.egfr} mL/min/1.73m². "
+                f"eGFR {patient_data.egfr} mL/min/1.73m². "
                 f"Medications: {', '.join(patient_data.medications) if patient_data.medications else 'none'}. "
                 f"Conditions: {', '.join(patient_data.conditions) if patient_data.conditions else 'none'}. "
             )

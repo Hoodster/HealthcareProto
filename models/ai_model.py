@@ -12,7 +12,6 @@ class AIModelPrompts:
 class PatientReferenceData:
     age: int
     gender: str
-    qtc: Optional[int] = None
     egfr: Optional[float] = None
     medications: Optional[list[str]] = None
     conditions: Optional[list[str]] = None

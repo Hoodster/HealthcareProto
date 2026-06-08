@@ -3,7 +3,7 @@ Expert System for Drug Safety Evaluation
 =========================================
 
 A rule-based decision support system for evaluating antiarrhythmic drug safety
-based on patient context (QTc, eGFR, medications, comorbidities).
+based on patient context (eGFR, medications, comorbidities).
 """
 
 from expert_system.models.patient_context import PatientContext

@@ -12,10 +12,9 @@ BENCHMARK_CASES: list[BenchmarkCase] = [
 
     BenchmarkCase(
         case_id="TEST_001",
-        description="High QTc + amiodarone → contraindicated",
+        description="Amiodarone + QT-prolonging drug → critical interaction alerts",
         patient=PatientContext(
             patient_id="TEST_001",
-            qtc=520,
             egfr=75,
             medications=["amiodarone", "metoprolol", "aspirin"],
             conditions=["atrial fibrillation", "hypertension"],
@@ -25,8 +24,8 @@ BENCHMARK_CASES: list[BenchmarkCase] = [
         ),
         question="Is the current antiarrhythmic therapy safe for this patient?",
         ground_truth={
-            "expected_contraindicated": True,
-            "expected_alert_categories": ["cardiac", "interaction"],
+            "expected_contraindicated": False,
+            "expected_alert_categories": ["interaction"],
             "expected_dose_adjustment": False,
         },
     ),
@@ -35,7 +34,6 @@ BENCHMARK_CASES: list[BenchmarkCase] = [
         description="Severe CKD (eGFR 25) + metformin → dose adjustment",
         patient=PatientContext(
             patient_id="TEST_002",
-            qtc=430,
             egfr=25,
             medications=["lisinopril", "metformin", "furosemide"],
             conditions=["chronic kidney disease stage 4", "diabetes"],
@@ -55,7 +53,6 @@ BENCHMARK_CASES: list[BenchmarkCase] = [
         description="Low-risk patient — no contraindications expected",
         patient=PatientContext(
             patient_id="TEST_003",
-            qtc=420,
             egfr=95,
             medications=["aspirin", "atorvastatin"],
             conditions=["hypertension"],
@@ -75,7 +72,6 @@ BENCHMARK_CASES: list[BenchmarkCase] = [
         description="Multiple QT-prolonging agents + moderate CKD",
         patient=PatientContext(
             patient_id="TEST_004",
-            qtc=485,
             egfr=42,
             medications=["clarithromycin", "metoprolol", "ketoconazole", "ondansetron"],
             conditions=["pneumonia", "hypertension", "ckd stage 3"],
@@ -86,7 +82,7 @@ BENCHMARK_CASES: list[BenchmarkCase] = [
         question="What are the drug safety concerns for this patient?",
         ground_truth={
             "expected_contraindicated": False,
-            "expected_alert_categories": ["cardiac", "renal", "interaction"],
+            "expected_alert_categories": ["renal", "interaction"],
             "expected_dose_adjustment": True,
         },
     ),
@@ -95,7 +91,6 @@ BENCHMARK_CASES: list[BenchmarkCase] = [
         description="Amiodarone + CYP inhibitors → multiple interaction alerts",
         patient=PatientContext(
             patient_id="TEST_005",
-            qtc=460,
             egfr=70,
             medications=["amiodarone", "metoprolol", "verapamil", "clarithromycin"],
             conditions=["atrial fibrillation"],
@@ -115,21 +110,20 @@ BENCHMARK_CASES: list[BenchmarkCase] = [
 
     BenchmarkCase(
         case_id="EDGE_001",
-        description="Critical QTc (>500) without QT-prolonging drugs",
+        description="Two QT-prolonging drugs without ECG interval in context",
         patient=PatientContext(
             patient_id="EDGE_001",
-            qtc=510,
             egfr=80,
-            medications=["aspirin", "atorvastatin", "ramipril"],
-            conditions=["long qt syndrome"],
+            medications=["amiodarone", "clarithromycin", "ramipril"],
+            conditions=["atrial fibrillation"],
             age=45,
             gender="F",
             weight=60.0,
         ),
-        question="Is the measured QTc clinically significant?",
+        question="Is combining amiodarone and clarithromycin safe?",
         ground_truth={
-            "expected_contraindicated": True,
-            "expected_alert_categories": ["cardiac"],
+            "expected_contraindicated": False,
+            "expected_alert_categories": ["interaction"],
             "expected_dose_adjustment": False,
         },
     ),
@@ -138,7 +132,6 @@ BENCHMARK_CASES: list[BenchmarkCase] = [
         description="End-stage renal disease eGFR<15",
         patient=PatientContext(
             patient_id="EDGE_002",
-            qtc=440,
             egfr=12,
             medications=["metoprolol", "furosemide", "erythropoietin"],
             conditions=["end-stage renal disease", "hypertension"],
@@ -158,7 +151,6 @@ BENCHMARK_CASES: list[BenchmarkCase] = [
         description="Polypharmacy: 3 QT-prolonging agents simultaneously",
         patient=PatientContext(
             patient_id="EDGE_003",
-            qtc=465,
             egfr=60,
             medications=["azithromycin", "haloperidol", "methadone", "omeprazole"],
             conditions=["schizophrenia", "opioid dependence", "pneumonia"],
@@ -175,10 +167,9 @@ BENCHMARK_CASES: list[BenchmarkCase] = [
     ),
     BenchmarkCase(
         case_id="EDGE_004",
-        description="Borderline QTc (450–470) — moderate alert only",
+        description="Ondansetron with QT-prolonging interaction risk",
         patient=PatientContext(
             patient_id="EDGE_004",
-            qtc=460,
             egfr=85,
             medications=["ondansetron", "ramipril"],
             conditions=["nausea", "hypertension"],
@@ -186,10 +177,10 @@ BENCHMARK_CASES: list[BenchmarkCase] = [
             gender="F",
             weight=65.0,
         ),
-        question="Is ondansetron safe given the QTc?",
+        question="Is ondansetron safe in this patient?",
         ground_truth={
             "expected_contraindicated": False,
-            "expected_alert_categories": ["cardiac", "interaction"],
+            "expected_alert_categories": ["interaction"],
             "expected_dose_adjustment": False,
         },
     ),
@@ -198,7 +189,6 @@ BENCHMARK_CASES: list[BenchmarkCase] = [
         description="Elderly patient, beta-blocker + antiarrhythmic bradycardia risk",
         patient=PatientContext(
             patient_id="EDGE_005",
-            qtc=440,
             egfr=55,
             medications=["bisoprolol", "amiodarone"],
             conditions=["atrial fibrillation", "heart failure"],

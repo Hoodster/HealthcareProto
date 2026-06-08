@@ -8,7 +8,6 @@ from expert_system.models.patient_context import PatientContext
 from expert_system.models.decision_context import DecisionContext
 
 # Import concrete rules
-from expert_system.rules.qtc_rules import HighQTcRule, ModerateQTcRule, MildQTcRule
 from expert_system.rules.renal_rules import (
     SevereRenalImpairmentRule,
     ModerateRenalImpairmentRule,
@@ -48,12 +47,8 @@ class RuleEngine:
 
     def _load_default_rules(self) -> List[BaseRule]:
         """Load default clinical ruleset."""
-        return [
-            # QTc rules (order by severity)
-            HighQTcRule(),
-            ModerateQTcRule(),
-            MildQTcRule(),
-
+        rules: List[BaseRule] = []
+        rules.extend([
             # Renal rules (order by severity)
             SevereRenalImpairmentRule(),
             ModerateRenalImpairmentRule(),
@@ -64,7 +59,8 @@ class RuleEngine:
             CYPInhibitorInteractionRule(),
             BetaBlockerInteractionRule(),
             DatabaseDrugInteractionRule(),
-        ]
+        ])
+        return rules
 
     def add_rule(self, rule: BaseRule) -> None:
         """Add a rule to the engine."""

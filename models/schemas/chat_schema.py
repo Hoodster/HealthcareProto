@@ -9,6 +9,10 @@ from pydantic import BaseModel, Field
 class MessageIn(BaseModel):
     content: str
     session_id: Optional[str] = None
+    patient_id: Optional[str] = Field(
+        default=None,
+        description="When set, RAG also searches this patient's uploaded documents",
+    )
 
 
 class MessageOut(BaseModel):

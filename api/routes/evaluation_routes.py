@@ -32,7 +32,7 @@ async def evaluate_patient(
     This endpoint applies a rule-based expert system to evaluate whether
     antiarrhythmic drugs are safe and appropriate for the given patient.
 
-    **Input:** Patient clinical context (QTc, eGFR, medications, conditions)
+    **Input:** Patient clinical context (eGFR, medications, conditions)
 
     **Output:** Decision context with:
     - Contraindication status
@@ -42,7 +42,6 @@ async def evaluate_patient(
     - Overall risk score (0-100)
 
     **Example scenarios:**
-    - QTc > 500ms → Contraindicated due to torsade de pointes risk
     - eGFR < 30 → Severe dose reduction required
     - Patient on QT-prolonging drugs → Critical drug interaction alert
     """
@@ -144,24 +143,22 @@ async def get_examples() -> dict:
         "examples": [
             {
                 "name": "High-risk cardiac patient",
-                "description": "Severe QT prolongation with drug interaction",
+                "description": "QT-prolonging drug with interaction alerts",
                 "patient": {
                     "patient_id": "EXAMPLE_001",
-                    "qtc": 520,
                     "egfr": 75,
                     "medications": ["amiodarone", "metoprolol"],
                     "conditions": ["atrial fibrillation", "hypertension"],
                     "age": 72,
                     "gender": "M"
                 },
-                "expected_outcome": "Contraindicated - QTc > 500ms + QT-prolonging drug"
+                "expected_outcome": "Critical interaction alerts — amiodarone is QT-prolonging"
             },
             {
                 "name": "Renal impairment patient",
                 "description": "Moderate CKD requiring dose adjustment",
                 "patient": {
                     "patient_id": "EXAMPLE_002",
-                    "qtc": 430,
                     "egfr": 25,
                     "medications": ["lisinopril", "metformin"],
                     "conditions": ["chronic kidney disease", "diabetes"],
@@ -175,7 +172,6 @@ async def get_examples() -> dict:
                 "description": "Normal parameters, no contraindications",
                 "patient": {
                     "patient_id": "EXAMPLE_003",
-                    "qtc": 420,
                     "egfr": 95,
                     "medications": ["aspirin"],
                     "conditions": ["hypertension"],
@@ -186,10 +182,9 @@ async def get_examples() -> dict:
             },
             {
                 "name": "Multiple risk factors",
-                "description": "Moderate QT + renal impairment + drug interactions",
+                "description": "Multiple QT-prolonging drugs + renal impairment",
                 "patient": {
                     "patient_id": "EXAMPLE_004",
-                    "qtc": 485,
                     "egfr": 42,
                     "medications": ["clarithromycin", "metoprolol", "ketoconazole"],
                     "conditions": ["pneumonia", "hypertension", "ckd stage 3"],

@@ -176,7 +176,6 @@ def build_mimic_patient_context(subject_id: int, hadm_id: int, db: Session):
     Sources:
     - medications: MimicPrescription.drug_name_generic
     - eGFR: derived from last creatinine (itemid=50912) via MDRD formula
-    - QTc: fallback 420 ms (no ECG events in MIMIC model)
     - conditions: ICD-9 diagnoses mapped to human-readable strings
     - age: patients.dob vs admissions.admittime
     """
@@ -237,27 +236,13 @@ def build_mimic_patient_context(subject_id: int, hadm_id: int, db: Session):
             if label not in conditions:
                 conditions.append(label)
 
-    # QTc fallback: MIMIC-III does not expose individual ECG waveform measurements
-    # as structured chartevents in the standard demo/full dataset.  A population
-    # median of 420 ms is used as a conservative placeholder.  Any rule that fires
-    # solely on QTc (e.g. QTc > 500 ms threshold) will therefore NOT trigger for
-    # MIMIC patients — this is a known limitation of the benchmark dataset.
-    log.warning(
-        "QTc unavailable for MIMIC patient %s / admission %s — using population "
-        "median fallback (420 ms). Expert-system rules sensitive to QTc prolongation "
-        "will not fire for this context.",
-        subject_id,
-        hadm_id,
-    )
-
     return PatientContext(
         patient_id=f"MIMIC_{subject_id}_{hadm_id}",
-        qtc=420.0,
         egfr=egfr,
         medications=medications,
         conditions=conditions,
         age=age,
         gender=gender,
-        weight=None
+        weight=None,
     )
 
