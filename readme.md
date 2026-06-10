@@ -28,9 +28,7 @@ Monitoring per pacjent: `GET /hp_proto/api/pipeline/antiarrhythmic-safety/{subje
 
 Serwis: https://azaphtn4tglr3jlgw.azurewebsites.net/hp_proto/api/swagger
 
-## Jak się po tym poruszać
-
-Zalecana ścieżka — od gotowego wyniku do kodu:
+## Instrukcja
 
 1. **Zobacz gotowy raport** → [`artifacts/safety.md`](artifacts/safety.md). Czyta się go
    w trzech sekcjach:
