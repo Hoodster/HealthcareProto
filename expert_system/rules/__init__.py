@@ -4,12 +4,12 @@ from expert_system.rules.base_rule import BaseRule
 from expert_system.rules.renal_rules import (
     SevereRenalImpairmentRule,
     ModerateRenalImpairmentRule,
-    MildRenalImpairmentRule,
+    MildRenalImpairmentRule
 )
 from expert_system.rules.interaction_rules import (
     QTProlongingDrugInteractionRule,
     CYPInhibitorInteractionRule,
-    BetaBlockerInteractionRule,
+    BetaBlockerInteractionRule
 )
 
 __all__ = [

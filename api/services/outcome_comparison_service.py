@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from api.services.mimic_service import get_heart_patients
 from api.services.pipeline_service import PipelineService
-from expert_system.rules.interaction_rules import QT_PROLONGING_DRUGS
+from expert_system.rules.interaction_rules import ANTIARRHYTHMIC_DRUGS, QT_PROLONGING_DRUGS
 
 OutcomeFilter = Literal["all", "died", "survived"]
 
@@ -21,6 +21,14 @@ class OutcomeComparisonRow(BaseModel):
     primary_diagnosis: Optional[str] = None
     medication_count: int = 0
     qt_drug_count: int = 0
+    antiarrhythmic_drugs: list[str] = Field(
+        default_factory=list,
+        description="Antiarrhythmic drugs (Vaughan-Williams I/III) from MIMIC prescriptions",
+    )
+    on_antiarrhythmic: bool = Field(
+        default=False,
+        description="Whether the patient was exposed to any antiarrhythmic drug",
+    )
     egfr: float
     guideline_violations: list[str] = Field(
         description="Proxy rules only — NOT clinical ground truth"
@@ -29,6 +37,13 @@ class OutcomeComparisonRow(BaseModel):
     rag_safety_concern: Optional[bool] = None
     genai_detected_risks: list[str] = Field(default_factory=list)
     rag_detected_risks: list[str] = Field(default_factory=list)
+    rag_sources: list[dict] = Field(
+        default_factory=list,
+        description="RAG sources actually used by rag (filename, doc_type, score) — proof RAG processed sources",
+    )
+    rag_sources_used: int = Field(
+        default=0, description="Number of RAG sources retrieved for rag"
+    )
     genai_response_excerpt: Optional[str] = None
     rag_response_excerpt: Optional[str] = None
     same_concern_genai_rag: Optional[bool] = None
@@ -36,18 +51,38 @@ class OutcomeComparisonRow(BaseModel):
 
 
 class OutcomeComparisonSummary(BaseModel):
+    """Descriptive comparison — NO classification metrics.
+
+    MIMIC has no gold-standard label for "antiarrhythmic safety concern", so we
+    do NOT compute precision/recall/F1. We report (2) descriptive association of
+    each approach's concern signal with the death outcome, and (3) inter-method
+    (dis)agreement used to surface case studies.
+    """
+
     total_rows: int
     died_count: int
     survived_count: int
+    on_antiarrhythmic_count: int = 0
+    # (2) Descriptive association with death — concern rate within each outcome group
+    expert_concern_among_died_pct: Optional[float] = None
     genai_concern_among_died_pct: Optional[float] = None
     rag_concern_among_died_pct: Optional[float] = None
+    expert_concern_among_survived_pct: Optional[float] = None
     genai_concern_among_survived_pct: Optional[float] = None
     rag_concern_among_survived_pct: Optional[float] = None
+    # Overall concern rates (selectivity)
+    expert_concern_pct: Optional[float] = None
+    genai_concern_pct: Optional[float] = None
+    rag_concern_pct: Optional[float] = None
+    # (3) Inter-method agreement (genai vs rag) — supports disagreement case studies
     genai_rag_agreement_pct: Optional[float] = None
     genai_only_concern: int = 0
     rag_only_concern: int = 0
     both_concern: int = 0
     neither_concern: int = 0
+    disagreement_count: int = Field(
+        default=0, description="Rows where expert/GenAI/RAG signals are not all equal"
+    )
 
 
 class OutcomeComparisonReport(BaseModel):
@@ -59,6 +94,11 @@ class OutcomeComparisonReport(BaseModel):
     outcome_filter: OutcomeFilter
     summary: OutcomeComparisonSummary
     rows: list[OutcomeComparisonRow]
+    next_offset: Optional[int] = Field(
+        default=None,
+        description="Resume cursor for pagination: pass as ?offset= to fetch the next page. "
+        "None means the patient list was exhausted.",
+    )
 
 
 def _excerpt(text: Optional[str], limit: int = 280) -> Optional[str]:
@@ -84,25 +124,45 @@ class OutcomeComparisonService:
         db: Session,
         *,
         limit: int = 30,
+        offset: int = 0,
         approaches: Optional[list[str]] = None,
         outcome_filter: OutcomeFilter = "all",
+        antiarrhythmic_only: bool = False,
     ) -> OutcomeComparisonReport:
         if approaches is None:
-            approaches = ["genai", "rag_full"]
+            approaches = ["genai", "rag"]
+
+        from api.services.mimic_service import get_patient_prescriptions
 
         pipeline = PipelineService()
         patients_raw = get_heart_patients(db, with_icu_stay=False)
         rows: list[OutcomeComparisonRow] = []
+        next_offset: Optional[int] = None
 
-        for p in patients_raw:
+        for idx in range(max(offset, 0), len(patients_raw)):
+            # Stop once this page is full; expose a resume cursor so callers can
+            # page through large cohorts without hitting the gateway timeout.
             if len(rows) >= limit:
+                next_offset = idx
                 break
+            p = patients_raw[idx]
             subject_id = p["subject_id"]
             admissions = p.get("admissions") or []
             if not admissions:
                 continue
             hadm_id = admissions[0].get("hadm_id")
             if hadm_id is None:
+                continue
+
+            # Cheap antiarrhythmic gate BEFORE expensive AI calls
+            try:
+                prescriptions = get_patient_prescriptions(subject_id, hadm_id, db)
+            except Exception:
+                prescriptions = []
+            antiarrhythmics = sorted(
+                {m.lower() for m in prescriptions} & ANTIARRHYTHMIC_DRUGS
+            )
+            if antiarrhythmic_only and not antiarrhythmics:
                 continue
 
             try:
@@ -126,7 +186,9 @@ class OutcomeComparisonService:
 
             ctx = result.raw_patient_context or {}
             meds = ctx.get("medications") or []
-            qt_count = len({m.lower() for m in meds} & QT_PROLONGING_DRUGS)
+            meds_lower = {m.lower() for m in meds}
+            qt_count = len(meds_lower & QT_PROLONGING_DRUGS)
+            antiarrhythmics = sorted(meds_lower & ANTIARRHYTHMIC_DRUGS) or antiarrhythmics
 
             genai_concern = None
             rag_concern = None
@@ -135,6 +197,8 @@ class OutcomeComparisonService:
             rag_risks: list[str] = []
             genai_excerpt = None
             rag_excerpt = None
+            rag_sources: list[dict] = []
+            rag_sources_used = 0
 
             if "expert" in result.metrics:
                 expert_concern = result.metrics["expert"].detected_high_risk
@@ -142,10 +206,12 @@ class OutcomeComparisonService:
                 genai_concern = result.metrics["genai"].detected_high_risk
                 genai_risks = result.genai_result.detected_risks
                 genai_excerpt = _excerpt(result.genai_result.response)
-            if result.rag_full_result and "rag_full" in result.metrics:
-                rag_concern = result.metrics["rag_full"].detected_high_risk
-                rag_risks = result.rag_full_result.detected_risks
-                rag_excerpt = _excerpt(result.rag_full_result.response)
+            if result.rag_result and "rag" in result.metrics:
+                rag_concern = result.metrics["rag"].detected_high_risk
+                rag_risks = result.rag_result.detected_risks
+                rag_excerpt = _excerpt(result.rag_result.response)
+                rag_sources = result.rag_result.rag_sources
+                rag_sources_used = result.rag_result.sources_used
 
             same = None
             if genai_concern is not None and rag_concern is not None:
@@ -159,12 +225,16 @@ class OutcomeComparisonService:
                     primary_diagnosis=_primary_diagnosis(p, hadm_id),
                     medication_count=len(meds),
                     qt_drug_count=qt_count,
+                    antiarrhythmic_drugs=antiarrhythmics,
+                    on_antiarrhythmic=bool(antiarrhythmics),
                     egfr=float(ctx.get("egfr", 90)),
                     guideline_violations=list(gt.guideline_violations),
                     genai_safety_concern=genai_concern,
                     rag_safety_concern=rag_concern,
                     genai_detected_risks=genai_risks,
                     rag_detected_risks=rag_risks,
+                    rag_sources=rag_sources,
+                    rag_sources_used=rag_sources_used,
                     genai_response_excerpt=genai_excerpt,
                     rag_response_excerpt=rag_excerpt,
                     same_concern_genai_rag=same,
@@ -178,6 +248,7 @@ class OutcomeComparisonService:
             outcome_filter=outcome_filter,
             summary=summary,
             rows=rows,
+            next_offset=next_offset,
         )
 
     @staticmethod
@@ -213,17 +284,34 @@ class OutcomeComparisonService:
                 1,
             )
 
+        # (3) Disagreement = the three signals are not all equal (ignoring None)
+        disagreement = 0
+        for r in rows:
+            signals = {
+                v for v in (r.expert_safety_concern, r.genai_safety_concern, r.rag_safety_concern)
+                if v is not None
+            }
+            if len(signals) > 1:
+                disagreement += 1
+
         return OutcomeComparisonSummary(
             total_rows=len(rows),
             died_count=len(died),
             survived_count=len(survived),
+            on_antiarrhythmic_count=sum(1 for r in rows if r.on_antiarrhythmic),
+            expert_concern_among_died_pct=_pct(died, "expert_safety_concern"),
             genai_concern_among_died_pct=_pct(died, "genai_safety_concern"),
             rag_concern_among_died_pct=_pct(died, "rag_safety_concern"),
+            expert_concern_among_survived_pct=_pct(survived, "expert_safety_concern"),
             genai_concern_among_survived_pct=_pct(survived, "genai_safety_concern"),
             rag_concern_among_survived_pct=_pct(survived, "rag_safety_concern"),
+            expert_concern_pct=_pct(rows, "expert_safety_concern"),
+            genai_concern_pct=_pct(rows, "genai_safety_concern"),
+            rag_concern_pct=_pct(rows, "rag_safety_concern"),
             genai_rag_agreement_pct=agreement,
             genai_only_concern=genai_only,
             rag_only_concern=rag_only,
             both_concern=both,
             neither_concern=neither,
+            disagreement_count=disagreement,
         )

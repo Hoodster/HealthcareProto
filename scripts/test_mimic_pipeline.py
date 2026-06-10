@@ -8,7 +8,7 @@ This script calls the API endpoints to:
 3. Aggregate metrics and save results
 
 Usage:
-    python scripts/test_mimic_pipeline.py --limit 10 --approaches expert genai rag_full
+    python scripts/test_mimic_pipeline.py --limit 10 --approaches expert genai rag
     python scripts/test_mimic_pipeline.py --api-url http://localhost:8000 --limit 20 --token YOUR_TOKEN
 """
 
@@ -261,8 +261,8 @@ Examples:
     parser.add_argument(
         "--approaches",
         nargs="+",
-        choices=["expert", "genai", "rag_full"],
-        default=["expert", "genai", "rag_full"],
+        choices=["expert", "genai", "rag"],
+        default=["expert", "genai", "rag"],
         help="Approaches to evaluate (default: all)"
     )
     parser.add_argument(

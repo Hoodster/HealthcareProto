@@ -1,7 +1,16 @@
-# Metodologia porównań — co jest zdefiniowane w kodzie
+# Metodologia — bezpieczeństwo leków przeciwarytmicznych
+
+Platforma ocenia **bezpieczeństwo leków przeciwarytmicznych** w leczeniu chorób
+układu krążenia trzema metodami — **system ekspercki + GenAI + RAG** — i waliduje
+sygnał bezpieczeństwa względem retrospektywnego outcome MIMIC.
 
 Ten dokument opisuje **wyłącznie to, co jest zaimplementowane** w repozytorium.  
 Nie dodawaj w pracy parametrów, których tu nie ma.
+
+**Leki przeciwarytmiczne (Vaughan-Williams I/III)** — `ANTIARRHYTHMIC_DRUGS` w
+[`expert_system/rules/interaction_rules.py`](../expert_system/rules/interaction_rules.py):
+quinidine, procainamide, disopyramide, lidocaine, mexiletine, flecainide,
+propafenone, amiodarone, dronedarone, sotalol, dofetilide, ibutilide.
 
 ---
 
@@ -11,7 +20,7 @@ Nie dodawaj w pracy parametrów, których tu nie ma.
 |---------|--------|------------|
 | **A. Outcome MIMIC** | `mimiciii.admissions.hospital_expire_flag` | `1` = pacjent zmarł w szpitalu podczas tej hospitalizacji; `0` = wypisany żywy. To **jedyny fakt retrospektywny** z bazy. |
 | **B. Proxy wytycznych** | `PipelineService._compute_ground_truth()` | Reguły: ≥2 leki QT, eGFR &lt; 30. To **nie jest diagnoza lekarza** — operacjonalizacja do benchmarku. |
-| **C. Sygnał systemu** | expert / genai / rag_full | Czy dane podejście **uznało** wysokie ryzyko bezpieczeństwa leków (definicja poniżej). |
+| **C. Sygnał systemu** | expert / genai / rag | Czy dane podejście **uznało** wysokie ryzyko bezpieczeństwa leków (definicja poniżej). |
 
 **Ważne:** System **nie widzi** `hospital_expire_flag` w momencie oceny — widzi tylko leki, eGFR, rozpoznania itd. Porównanie z zgonem to analiza retrospektywna, **nie predykcja śmierci**.
 
@@ -26,53 +35,128 @@ Nie dodawaj w pracy parametrów, których tu nie ma.
 | `conditions` | ICD-9 (częściowo zmapowane) | reszta jako `icd9:...` |
 | `age`, `gender` | `patients` + `admissions.admittime` | MIMIC maskuje wiek ≥89 |
 
-Kohorta: pacjenci z ICD-9 **426\*, 428\*, 42731, 42732, 4271** (`get_heart_patients`).
+Kohorta: pacjenci z ICD-9 **426\*, 428\*, 42731, 42732, 4271, 2768** (`get_heart_patients`).
+Flaga `--antiarrhythmic-only` / parametr `antiarrhythmic_only` zawęża analizę do
+pacjentów z faktyczną **ekspozycją antyarytmiczną** (`on_antiarrhythmic = true`).
 
 ---
 
-## 3. Definicja „sygnału bezpieczeństwa” per podejście
+## 3. Reguły bezpieczeństwa antyarytmików (system ekspercki)
+
+Źródło: [`expert_system/rules/`](../expert_system/rules/), silnik
+`RuleEngine._load_default_rules()`.
+
+| Reguła | Co wykrywa |
+|--------|-----------|
+| `QTProlongingDrugInteractionRule` | leki wydłużające QT (additive torsade) — **critical** |
+| `CYPInhibitorInteractionRule` | inhibitory CYP zwiększające poziom antyarytmiku — **high** |
+| `BetaBlockerInteractionRule` | additive bradykardia z antyarytmikiem — **moderate** |
+| `DatabaseDrugInteractionRule` | interakcje par leków z DrugBank — **high** |
+| `RenalContraindicatedAntiarrhythmicRule` | sotalol/dofetilide przeciwwskazane przy eGFR < 30 (**contraindicated**); procainamide/disopyramide → redukcja dawki |
+| `SevereRenalImpairmentRule` / `Moderate` / `Mild` | dawkowanie wg eGFR |
+
+### Definicja „sygnału bezpieczeństwa” per podejście
 
 Źródło: `PipelineService._compute_metrics()`.
 
 | Podejście | `detected_high_risk = true` gdy… |
 |-----------|----------------------------------|
 | **expert** | `contraindicated` LUB alert severity `critical` / `high` |
-| **genai** (LLM) | w odpowiedzi wykryto słowa kluczowe: `qt_prolongation`, `contraindication`, `drug_interaction` |
-| **rag_full** (RAG+LLM+expert) | są alerty experta LUB te same słowa kluczowe w odpowiedzi LLM |
+| **genai** (LLM) | LLM zwraca `SAFETY_VERDICT: HIGH_RISK` (strukturalny werdykt per pacjent) |
+| **rag** (RAG+LLM+expert) | LLM (widząc wytyczne RAG + alerty eksperta) zwraca `SAFETY_VERDICT: HIGH_RISK` |
 
-Słowa kluczowe LLM: `_extract_risks_from_text()` — lista stała w kodzie, **nie** ocena kliniczna.
+**Werdykt zamiast słów kluczowych:** prompt wymaga, by LLM zakończył odpowiedź jedną
+linią `SAFETY_VERDICT: HIGH_RISK|LOW_RISK` — to ocena per pacjent, nie wykrycie
+przypadkowego słowa. Parser: `_extract_safety_verdict()` (fallback do słów kluczowych
+`_extract_risks_from_text()` tylko gdy werdykt nie został zwrócony).
+Lista `detected_risks` (słowa kluczowe) służy już **tylko** jako informacyjny opis
+czynników, nie jako sygnał decyzyjny.
 
 ---
 
-## 4. Co porównujesz w badaniu (LLM vs RAG)
+## 4. Co porównujesz w badaniu (expert vs GenAI vs RAG)
 
-Skrypt `scripts/run_comparison.py` generuje tabelę z kolumnami:
+Skrypt `scripts/run_comparison.py` generuje tabelę (CSV) i raport (Markdown) z kolumnami:
 
 - `mimic_died` — outcome z MIMIC (warstwa A)
-- `guideline_violations` — proxy (warstwa B), **osobno**
-- `genai_safety_concern` / `rag_safety_concern` — sygnał (warstwa C)
+- `antiarrhythmic_drugs` / `on_antiarrhythmic` — ekspozycja antyarytmiczna
+- `qt_drug_count`, `guideline_violations` — proxy (warstwa B), **osobno**
+- `expert_safety_concern` / `genai_safety_concern` / `rag_safety_concern` — sygnał (warstwa C)
+- `rag_sources` / `rag_sources_used` — **dokumenty faktycznie przetworzone przez RAG** (filename + score)
 - `genai_response_excerpt` / `rag_response_excerpt` — fragment odpowiedzi do ręcznej weryfikacji
-- `same_concern_genai_rag` — czy oba podejścia dały ten sam sygnał tak/nie
+- `same_concern_genai_rag` — czy GenAI i RAG dały ten sam sygnał
 
-**Sensowne pytania badawcze (bez „wynalezionych” metryk):**
+### Dlaczego NIE liczymy precyzji/czułości/F1
 
-1. W kohortcie **zgon w szpitalu**: jaki % przypadków LLM vs RAG oznaczył `safety_concern`?
-2. W kohortcie **przeżyli**: jaki % fałszywych alarmów (concern przy `mimic_died=0`)?
-3. Gdzie RAG **różni się** od LLM (same_concern = false) — case studies z CSV.
+MIMIC **nie zawiera złotego standardu** etykiety „zagrożenie bezpieczeństwa
+antyarytmiku”. Każdy możliwy target jest wadliwy:
+
+- **zgon** — „safety concern” ≠ „pacjent umrze” (pacjent z ryzykownym lekiem może
+  przeżyć, bo lekarz zareagował); PPV/F1 byłyby z definicji zaniżone i mylące;
+- **proxy reguł** (≥2 leki QT / eGFR<30) — system ekspercki używa **tych samych**
+  reguł, więc walidacja byłaby błędnym kołem (~100% z definicji).
+
+Dlatego raport stosuje **trzy analizy bez „prawdy”**:
+
+**(1) Selektywność + opisowa asocjacja ze zgonem** (`OutcomeComparisonSummary`):
+% przypadków, w których podejście zgłasza obawę — ogółem oraz osobno wśród
+**zmarłych** i **przeżywających**. Niższy „% ogółem” = większa selektywność;
+różnica zmarli–przeżywający = opisowy (nie przyczynowy) związek z outcome.
+
+**(2) Zgodność / rozbieżności** między expert / GenAI / RAG
+(`genai_rag_agreement_pct`, `disagreement_count`) — gdzie AI odbiega od reguł.
+
+**(3) Studia przypadków** — wiersze z rozbieżnym sygnałem, z fragmentami odpowiedzi
+GenAI/RAG i źródłami RAG, do jakościowej oceny *dlaczego* podejścia się różnią.
 
 ---
 
-## 5. Czego **nie** pisać w pracy
+## 5. RAG przetwarza źródła (dowód)
 
-- Nie nazywaj `is_high_risk` „prawdziwym ryzykiem klinicznym” — to OR(proxy wytycznych, zgon).
-- Nie pisz, że system przewiduje śmierć — porównujesz **sygnał bezpieczeństwa leków** z **outcome** retrospektywnie.
+Baza wiedzy: `artifacts/rag_knowledge.json` (wytyczne z `.sources/*.pdf`, np. ESC 2019
+Supraventricular Tachycardia), budowana przez `scripts/seed_rag_knowledge.py`.
+`api/rag_store.retrieve_context_with_sources()` zwraca tekst **oraz** listę
+`rag_sources` (filename, doc_type, score). Zapytanie jest budowane per pacjent
+(`build_rag_query` — leki, choroby, eGFR), więc **score różni się między pacjentami**.
+Korpus wytycznych jest niewielki (kilka PDF), więc **nazwy plików się powtarzają**;
+różnicowanie zachodzi na poziomie chunków i score (raport pokazuje top źródło + score).
+Weryfikacja: `python scripts/test_rag.py`.
 
 ---
 
-## 6. Uruchomienie
+## 6. Monitoring per pacjent
+
+Endpoint: `GET /hp_proto/api/pipeline/antiarrhythmic-safety/{subject_id}/{hadm_id}`
+(`PipelineService.assess_antiarrhythmic_safety`). Zwraca `AntiarrhythmicSafetyReport`:
+ekspozycję antyarytmiczną, alerty eksperta, sygnał+odpowiedź GenAI, sygnał+odpowiedź+`rag_sources`
+RAG, `safety_score` (100 − `risk_score`), zgodność podejść i `recommendation`.
+
+---
+
+## 7. Przykład (worked example)
+
+Pacjent na **amiodaronie + sotalolu** z eGFR 22:
+
+- **Expert**: `RenalContraindicatedAntiarrhythmicRule` → sotalol **contraindicated** (eGFR < 30);
+  `QTProlongingDrugInteractionRule` → additive QT (critical); `risk_score = 100` → `safety_score = 0`.
+- **GenAI**: w odpowiedzi `qt_prolongation` + `renal_impairment` → `safety_concern = true`.
+- **RAG**: te same sygnały + `rag_sources` z wytycznych (np. `2019_SupraventricularTachycardia.pdf`).
+- **Zgodność**: `approaches_agree = true`; `recommendation`: zamień antyarytmik / unikaj.
+
+Wygeneruj realnym przebiegiem:
 
 ```bash
-python scripts/run_comparison.py --limit 30
+python scripts/run_comparison.py --local --limit 30 --antiarrhythmic-only --markdown artifacts/safety.md
+```
+
+## 9. Uruchomienie
+
+```bash
+# Cała kohorta kardiologiczna
+python scripts/run_comparison.py --limit 30 --markdown artifacts/safety.md
+# Tylko pacjenci na antyarytmiku (sedno tematu)
+python scripts/run_comparison.py --limit 30 --antiarrhythmic-only --markdown artifacts/safety.md
+# Kohorta zgonów
 python scripts/run_comparison.py --limit 20 --outcome died --output artifacts/death_cohort.csv
 ```
 

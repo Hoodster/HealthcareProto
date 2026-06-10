@@ -226,26 +226,42 @@ def _format_results(results: list, section_title: str) -> str:
     return "\n\n".join(parts)
 
 
-def retrieve_context(
+def _source_records(results: list) -> list[dict[str, Any]]:
+    """Project retrieval results into lightweight source descriptors."""
+    sources: list[dict[str, Any]] = []
+    for r in results:
+        meta = r.chunk.metadata or {}
+        sources.append(
+            {
+                "filename": meta.get("filename", r.chunk.doc_id),
+                "doc_type": meta.get("doc_type", "guideline"),
+                "score": round(float(r.score), 3),
+                "chunk_id": r.chunk.chunk_id,
+            }
+        )
+    return sources
+
+
+def retrieve_context_with_sources(
     query: str,
     top_k: int = 6,
     *,
     patient_id: str | None = None,
     min_score: float = _MIN_SCORE,
-) -> str:
+) -> tuple[str, list[dict[str, Any]]]:
     """
-    Retrieve guideline + optional patient-document context for an LLM prompt.
-
-    Splits budget between clinical guidelines and patient-specific documents.
+    Retrieve guideline + optional patient-document context AND the list of
+    sources actually used (filename, doc_type, score). Proves the RAG layer
+    processed real documents.
     """
     if _store is None or _embedder is None:
-        return ""
+        return "", []
 
     try:
         query_embedding = _embedder.embed(query)
     except Exception as exc:
         log.warning("RAG query embedding failed: %s", exc)
-        return ""
+        return "", []
 
     guideline_k = max(2, top_k // 2)
     patient_k = max(2, top_k - guideline_k)
@@ -265,7 +281,7 @@ def retrieve_context(
             )
     except Exception as exc:
         log.warning("RAG retrieval failed: %s", exc)
-        return ""
+        return "", []
 
     guideline_results = [
         r for r in _rerank(query, guideline_hits)
@@ -277,7 +293,7 @@ def retrieve_context(
     ][:patient_k] if patient_id else []
 
     if not guideline_results and not patient_results:
-        return ""
+        return "", []
 
     sections: list[str] = []
     g_text = _format_results(guideline_results[:guideline_k], "CLINICAL GUIDELINES")
@@ -286,7 +302,29 @@ def retrieve_context(
         sections.append(g_text)
     if p_text:
         sections.append(p_text)
-    return "\n\n".join(sections)
+
+    sources = _source_records(guideline_results[:guideline_k]) + _source_records(
+        patient_results[:patient_k]
+    )
+    return "\n\n".join(sections), sources
+
+
+def retrieve_context(
+    query: str,
+    top_k: int = 6,
+    *,
+    patient_id: str | None = None,
+    min_score: float = _MIN_SCORE,
+) -> str:
+    """
+    Retrieve guideline + optional patient-document context for an LLM prompt.
+
+    Splits budget between clinical guidelines and patient-specific documents.
+    """
+    text, _ = retrieve_context_with_sources(
+        query, top_k, patient_id=patient_id, min_score=min_score
+    )
+    return text
 
 
 def get_rag_status() -> dict[str, Any]:

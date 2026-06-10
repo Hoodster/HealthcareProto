@@ -45,6 +45,27 @@ BETA_BLOCKERS = {
 }
 
 
+# Antiarrhythmic drugs by Vaughan-Williams class — core domain of this platform.
+# Class IA/IB/IC (Na-channel blockers) and Class III (K-channel blockers).
+ANTIARRHYTHMIC_DRUGS = {
+    # Class IA
+    "quinidine", "procainamide", "disopyramide",
+    # Class IB
+    "lidocaine", "mexiletine",
+    # Class IC
+    "flecainide", "propafenone",
+    # Class III
+    "amiodarone", "dronedarone", "sotalol", "dofetilide", "ibutilide",
+}
+
+
+# Antiarrhythmics that are renally cleared — accumulate in renal impairment and
+# are contraindicated / require strict dose adjustment at low eGFR.
+RENALLY_CLEARED_ANTIARRHYTHMICS = {
+    "sotalol", "dofetilide", "procainamide", "disopyramide",
+}
+
+
 class QTProlongingDrugInteractionRule(BaseRule):
     """
     Drug interaction rule for QT-prolonging medications.
@@ -241,4 +262,77 @@ class DatabaseDrugInteractionRule(BaseRule):
         return (
             "The following drug-drug interactions were identified in the DrugBank database:\n"
             + "\n".join(lines)
+        )
+
+
+class RenalContraindicatedAntiarrhythmicRule(BaseRule):
+    """
+    Renal-clearance safety rule for antiarrhythmic drugs.
+
+    IF patient takes a renally-cleared antiarrhythmic (sotalol, dofetilide,
+    procainamide, disopyramide) AND eGFR < 30 THEN:
+    - sotalol / dofetilide → contraindicated (proarrhythmia / torsade risk)
+    - procainamide / disopyramide → high alert, strict dose reduction
+    """
+
+    SEVERE_EGFR = 30
+
+    def __init__(self):
+        super().__init__()
+        self.category = "interaction"
+
+    def _affected(self, patient: PatientContext) -> set[str]:
+        patient_drugs = {drug.lower().strip() for drug in patient.medications}
+        return patient_drugs & RENALLY_CLEARED_ANTIARRHYTHMICS
+
+    def condition(self, patient: PatientContext) -> bool:
+        return patient.egfr < self.SEVERE_EGFR and bool(self._affected(patient))
+
+    def action(self, patient: PatientContext, decision: DecisionContext) -> None:
+        affected = self._affected(patient)
+        contraindicated = affected & {"sotalol", "dofetilide"}
+        caution = affected - contraindicated
+
+        if contraindicated:
+            drugs = ", ".join(sorted(contraindicated))
+            decision.add_alert(
+                message=(
+                    f"Renally-cleared antiarrhythmic contraindicated at eGFR "
+                    f"{patient.egfr}: {drugs}"
+                ),
+                severity=AlertSeverity.CRITICAL,
+                rule_name=self.name,
+                category=self.category,
+            )
+            decision.set_contraindicated(
+                f"{drugs} accumulate in severe renal impairment (eGFR {patient.egfr} < 30) "
+                f"with high risk of QT prolongation and torsade de pointes"
+            )
+
+        if caution:
+            drugs = ", ".join(sorted(caution))
+            decision.add_alert(
+                message=(
+                    f"Renally-cleared antiarrhythmic requires strict dose reduction at eGFR "
+                    f"{patient.egfr}: {drugs}"
+                ),
+                severity=AlertSeverity.HIGH,
+                rule_name=self.name,
+                category=self.category,
+            )
+            if not decision.dose_adjustment:
+                decision.set_dose_adjustment(
+                    adjusted_dose="Reduce dose and monitor ECG, or switch to non-renally-cleared agent",
+                    reason=f"Renally-cleared antiarrhythmic ({drugs}) at eGFR {patient.egfr}",
+                    original_dose="Standard dose",
+                )
+
+    def explanation(self, patient: PatientContext) -> str:
+        affected = self._affected(patient)
+        return (
+            f"Patient takes renally-cleared antiarrhythmic(s): {', '.join(sorted(affected))} "
+            f"with eGFR {patient.egfr} mL/min/1.73m² (< {self.SEVERE_EGFR}). These agents "
+            f"accumulate in severe renal impairment. Sotalol and dofetilide are contraindicated "
+            f"due to dose-dependent QT prolongation and torsade de pointes; procainamide and "
+            f"disopyramide require strict dose reduction and ECG monitoring."
         )

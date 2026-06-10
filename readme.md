@@ -7,25 +7,54 @@
 
 # HealthcareProto
 
-Backend CDS: expert system + LLM + RAG dla bezpieczeństwa leków u pacjentów kardiologicznych (MIMIC).
+**Informatyczna platforma monitorowania i oceny bezpieczeństwa leków
+przeciwarytmicznych** w leczeniu chorób układu krążenia — z wykorzystaniem
+algorytmów AI (GenAI + RAG) i systemu eksperckiego. Walidacja względem outcome MIMIC.
+
+Trzy podejścia oceniają bezpieczeństwo antyarytmików (QT, interakcje CYP, bradykardia,
+przeciwwskazania nerkowe): **system ekspercki**, **GenAI** (LLM), **RAG** (LLM + wytyczne + expert).
 
 ## Szybki start — wyniki dla n przypadków
 
-→ **[QUICKSTART.md](QUICKSTART.md)** ← jedna komenda, CSV + JSON
+→ **[QUICKSTART.md](QUICKSTART.md)** ← jedna komenda, CSV + Markdown + JSON
 
 ```bash
 pip install -r requirements.txt
-python scripts/run_comparison.py --limit 20
+# Ocena bezpieczeństwa antyarytmików (opis + studia przypadków + źródła RAG)
+python scripts/run_comparison.py --limit 30 --antiarrhythmic-only --markdown artifacts/safety.md
 ```
 
+Monitoring per pacjent: `GET /hp_proto/api/pipeline/antiarrhythmic-safety/{subject_id}/{hadm_id}`
+
 Serwis: https://azaphtn4tglr3jlgw.azurewebsites.net/hp_proto/api/swagger
+
+## Jak się po tym poruszać
+
+Zalecana ścieżka — od gotowego wyniku do kodu:
+
+1. **Zobacz gotowy raport** → [`artifacts/safety.md`](artifacts/safety.md). Czyta się go
+   w trzech sekcjach:
+   - **Sekcja 1** — jak często każde podejście (expert / GenAI / RAG) zgłasza obawę
+     i jak to się ma do zgonu (% obaw ogółem vs wśród zmarłych vs przeżywających).
+   - **Sekcja 2** — zgodność GenAI vs RAG (oba / tylko jeden / żadne).
+   - **Sekcja 3** — studia przypadków, gdzie podejścia się **różnią**, z fragmentami
+     odpowiedzi AI i źródłem RAG. To tu widać „co AI zrobiło inaczej".
+2. **Wygeneruj świeże wyniki** dla dowolnego N → `python scripts/run_comparison.py --limit 30 --markdown artifacts/safety.md`.
+   Duże N pobierane jest stronami (`--chunk`), więc nie trafia w timeout bramy.
+   Szczegóły komend i flag: [`QUICKSTART.md`](QUICKSTART.md).
+3. **Sprawdź definicje** (czym jest „sygnał bezpieczeństwa", dlaczego bez F1/PPV) →
+   [`study_example/METHODOLOGY.md`](study_example/METHODOLOGY.md).
+4. **Przejrzyj jednego pacjenta** interaktywnie w Swaggerze →
+   `GET /hp_proto/api/pipeline/antiarrhythmic-safety/{subject_id}/{hadm_id}`
+   (zwraca `safety_score`, alerty eksperta, werdykty GenAI/RAG i użyte źródła RAG).
+5. **Wejdź w kod** wg sekcji *Struktura* poniżej (reguły eksperta, pipeline, RAG).
 
 ## Struktura
 
 ```text
-api/              FastAPI, pipeline, outcome comparison
-expert_system/    Reguły (eGFR, interakcje leków QT)
-scripts/          run_comparison.py — główny skrypt wyników
+api/              FastAPI, pipeline, outcome comparison, monitoring endpoint
+expert_system/    Reguły bezpieczeństwa antyarytmików (QT, CYP, β-bloker, DrugBank, nerki)
+scripts/          run_comparison.py (wyniki), test_rag.py (weryfikacja RAG)
 study_example/    Metodologia pod pracę magisterską
 ```
 

@@ -1,5 +1,6 @@
 """Pipeline service for comparing Expert System, GenAI, and RAG approaches."""
 
+import re
 import time
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -49,7 +50,7 @@ class PipelineService:
             subject_id: MIMIC patient subject_id
             hadm_id: MIMIC admission hadm_id
             db: Database session
-            approaches: List of approaches to run ['expert', 'genai', 'rag_full']
+            approaches: List of approaches to run ['expert', 'genai', 'rag']
                        Default: all three
             include_raw_context: Whether to include raw PatientContext in response
         
@@ -57,7 +58,7 @@ class PipelineService:
             PipelineComparisonResult with results from selected approaches
         """
         if approaches is None:
-            approaches = ["expert", "genai", "rag_full"]
+            approaches = ["expert", "genai", "rag"]
         
         # Build patient context from MIMIC
         patient_context = build_mimic_patient_context(subject_id, hadm_id, db)
@@ -89,10 +90,10 @@ class PipelineService:
                 result.genai_result, ground_truth, approach="genai"
             )
         
-        if "rag_full" in approaches:
-            result.rag_full_result = self._approach_rag_full(patient_context)
-            result.metrics["rag_full"] = self._compute_metrics(
-                result.rag_full_result, ground_truth, approach="rag_full"
+        if "rag" in approaches:
+            result.rag_result = self._approach_rag(patient_context)
+            result.metrics["rag"] = self._compute_metrics(
+                result.rag_result, ground_truth, approach="rag"
             )
         
         return result
@@ -116,8 +117,13 @@ class PipelineService:
         
         # Format patient context for LLM
         prompt = self._format_patient_prompt(patient_context)
-        prompt += "\n\nQuestion: Evaluate this patient's cardiac medication safety. List any high-risk factors, drug interactions, or contraindications."
-        
+        prompt += (
+            "\n\nQuestion: Evaluate THIS patient's antiarrhythmic / cardiac medication safety. "
+            "Flag only clinically significant, patient-specific concerns (real drug interactions, "
+            "contraindications, dangerous QT or renal dosing) — do NOT flag generic background risks.\n"
+            + self._VERDICT_INSTRUCTION
+        )
+
         response = self.ai_service.chat(prompt)
         
         # Extract mentioned risks (simple keyword matching)
@@ -131,7 +137,7 @@ class PipelineService:
             latency_ms=latency_ms
         )
     
-    def _approach_rag_full(self, patient_context: PatientContext) -> RAGFullResult:
+    def _approach_rag(self, patient_context: PatientContext) -> RAGFullResult:
         """Approach C: RAG + GenAI + Expert System."""
         start_time = time.time()
         
@@ -140,13 +146,13 @@ class PipelineService:
         expert_alerts = [alert.message for alert in expert_decision.alerts]
         
         # Step 2: Patient summary + vector RAG (guidelines + uploaded docs)
-        from api.rag_store import build_rag_query, retrieve_context
+        from api.rag_store import build_rag_query, retrieve_context_with_sources
 
         rag_query = build_rag_query(
             "cardiac medication safety drug interactions QT prolongation renal dosing contraindications",
             patient_context,
         )
-        guideline_context = retrieve_context(
+        guideline_context, rag_sources = retrieve_context_with_sources(
             rag_query,
             top_k=5,
             patient_id=patient_context.patient_id,
@@ -157,7 +163,7 @@ class PipelineService:
         if guideline_context:
             rag_sections.append("# Retrieved clinical knowledge\n" + guideline_context)
         rag_context = "\n\n".join(rag_sections)
-        sources_used = (5 if guideline_context else 0) + 4
+        sources_used = len(rag_sources) + 4
 
         # Step 3: Format comprehensive prompt with RAG context + Expert alerts
         prompt = "# Retrieved Patient Information:\n\n"
@@ -170,11 +176,15 @@ class PipelineService:
             prompt += "\n"
         
         prompt += "# Question:\n"
-        prompt += "Based on the patient information and expert system alerts above, provide a comprehensive assessment of this patient's cardiac medication safety. Include:\n"
-        prompt += "1. Key risk factors\n"
+        prompt += "Based on the patient information, retrieved guidelines, and expert system alerts above, assess THIS patient's antiarrhythmic / cardiac medication safety. Include:\n"
+        prompt += "1. Key patient-specific risk factors\n"
         prompt += "2. Drug interaction concerns\n"
-        prompt += "3. Clinical recommendations\n"
-        
+        prompt += "3. Clinical recommendations grounded in the retrieved guidelines\n"
+        prompt += (
+            "Flag only clinically significant, patient-specific concerns — do NOT flag generic background risks.\n"
+            + self._VERDICT_INSTRUCTION
+        )
+
         response = self.ai_service.chat(prompt)
         
         # Extract mentioned risks
@@ -185,11 +195,128 @@ class PipelineService:
         return RAGFullResult(
             response=response,
             sources_used=sources_used,
+            rag_sources=rag_sources,
             expert_alerts=expert_alerts,
             detected_risks=detected_risks,
             latency_ms=latency_ms
         )
     
+    def assess_antiarrhythmic_safety(
+        self,
+        subject_id: int,
+        hadm_id: int,
+        db: Session,
+    ):
+        """Per-patient antiarrhythmic drug-safety monitoring report.
+
+        Reuses evaluate_mimic_patient (expert + GenAI + RAG) and projects the
+        result into an AntiarrhythmicSafetyReport. Safety score reuses the
+        expert system risk_score (100 - risk_score).
+        """
+        from expert_system.rules.interaction_rules import ANTIARRHYTHMIC_DRUGS
+        from models.schemas.pipeline_schema import (
+            AntiarrhythmicSafetyReport,
+            ApproachSafetyView,
+            SafetyAlert,
+        )
+
+        result = self.evaluate_mimic_patient(
+            subject_id,
+            hadm_id,
+            db,
+            approaches=["expert", "genai", "rag"],
+            include_raw_context=True,
+        )
+
+        ctx = result.raw_patient_context or {}
+        meds = ctx.get("medications") or []
+        meds_lower = {m.lower() for m in meds}
+        antiarrhythmics = sorted(meds_lower & ANTIARRHYTHMIC_DRUGS)
+        qt_drugs = sorted(meds_lower & QT_PROLONGING_DRUGS)
+        egfr = float(ctx.get("egfr", 90))
+
+        decision = result.expert_result.decision if result.expert_result else None
+        expert_alerts = (
+            [
+                SafetyAlert(message=a.message, severity=a.severity.value, category=a.category)
+                for a in decision.alerts
+            ]
+            if decision
+            else []
+        )
+        risk_score = decision.risk_score if decision else 0
+        dose_adjustment = (
+            decision.dose_adjustment.adjusted_dose
+            if decision and decision.dose_adjustment
+            else None
+        )
+
+        def _view(approach: str) -> ApproachSafetyView:
+            concern = (
+                result.metrics[approach].detected_high_risk
+                if approach in result.metrics
+                else None
+            )
+            view = ApproachSafetyView(safety_concern=concern)
+            if approach == "genai" and result.genai_result:
+                view.detected_risks = result.genai_result.detected_risks
+                view.response = result.genai_result.response
+            elif approach == "rag" and result.rag_result:
+                view.detected_risks = result.rag_result.detected_risks
+                view.response = result.rag_result.response
+                view.sources_used = result.rag_result.sources_used
+                view.rag_sources = result.rag_result.rag_sources
+            elif approach == "expert" and decision:
+                view.detected_risks = sorted({a.category for a in decision.alerts})
+            return view
+
+        expert_view = _view("expert")
+        genai_view = _view("genai")
+        rag_view = _view("rag")
+
+        concerns = [
+            v.safety_concern
+            for v in (expert_view, genai_view, rag_view)
+            if v.safety_concern is not None
+        ]
+        agree = (len(set(concerns)) == 1) if len(concerns) >= 2 else None
+
+        contraindicated = bool(decision and decision.contraindicated)
+        safety_score = round(max(0.0, 100.0 - risk_score), 1)
+
+        if contraindicated:
+            recommendation = (
+                "CONTRAINDICATED antiarrhythmic regimen — switch agent / avoid. "
+                + (f"Adjust: {dose_adjustment}." if dose_adjustment else "")
+            )
+        elif risk_score >= 40:
+            recommendation = "High drug-safety risk — review antiarrhythmic therapy and monitor ECG."
+        elif risk_score > 0:
+            recommendation = "Moderate risk — monitor (ECG, renal function, drug levels)."
+        else:
+            recommendation = "No major antiarrhythmic safety flags detected."
+
+        return AntiarrhythmicSafetyReport(
+            subject_id=subject_id,
+            hadm_id=hadm_id,
+            egfr=egfr,
+            medications=list(meds),
+            antiarrhythmic_drugs=antiarrhythmics,
+            on_antiarrhythmic=bool(antiarrhythmics),
+            qt_prolonging_drugs=qt_drugs,
+            contraindicated=contraindicated,
+            expert_risk_score=risk_score,
+            safety_score=safety_score,
+            expert_alerts=expert_alerts,
+            dose_adjustment=dose_adjustment,
+            expert=expert_view,
+            genai=genai_view,
+            rag=rag_view,
+            approaches_agree=agree,
+            mimic_died=bool(result.ground_truth.adverse_outcome),
+            recommendation=recommendation,
+        )
+
     def _create_rag_index(self, patient_context: PatientContext) -> str:
         """Create temporary RAG index and return formatted context string."""
         # Semantic grouping: 4 documents per patient
@@ -266,6 +393,28 @@ class PipelineService:
         
         return "\n".join(parts)
     
+    _VERDICT_INSTRUCTION = (
+        "End your answer with EXACTLY one line, nothing after it:\n"
+        "SAFETY_VERDICT: HIGH_RISK   — if this patient's regimen has a clinically "
+        "significant, patient-specific drug-safety concern\n"
+        "SAFETY_VERDICT: LOW_RISK    — otherwise"
+    )
+
+    def _extract_safety_verdict(self, text: str) -> Optional[bool]:
+        """Parse the structured per-patient verdict emitted by the LLM.
+
+        Returns True for HIGH_RISK, False for LOW_RISK, None if absent
+        (caller falls back to keyword heuristic for backward compatibility).
+        """
+        if not text:
+            return None
+        match = re.search(
+            r"SAFETY_VERDICT\s*:\s*(HIGH_RISK|LOW_RISK)", text, re.IGNORECASE
+        )
+        if not match:
+            return None
+        return match.group(1).upper() == "HIGH_RISK"
+
     def _extract_risks_from_text(self, text: str) -> list[str]:
         """Extract risk keywords from AI response."""
         text_lower = text.lower()
@@ -350,18 +499,25 @@ class PipelineService:
             )
         
         elif approach == "genai":
-            # GenAI: detected any serious risks
-            detected_high_risk = any(
-                risk in approach_result.detected_risks
-                for risk in ["qt_prolongation", "contraindication", "drug_interaction"]
-            )
-        
-        elif approach == "rag_full":
-            # RAG+Full: detected risks or expert alerts present
-            detected_high_risk = bool(approach_result.expert_alerts) or any(
-                risk in approach_result.detected_risks
-                for risk in ["qt_prolongation", "contraindication", "drug_interaction"]
-            )
+            # GenAI: structured per-patient verdict (fallback to keywords if absent)
+            verdict = self._extract_safety_verdict(approach_result.response)
+            if verdict is None:
+                verdict = any(
+                    risk in approach_result.detected_risks
+                    for risk in ["qt_prolongation", "contraindication", "drug_interaction"]
+                )
+            detected_high_risk = verdict
+
+        elif approach == "rag":
+            # RAG: LLM verdict informed by retrieved guidelines + expert alerts in prompt
+            # (NOT a raw echo of expert alerts — keeps RAG independent from expert).
+            verdict = self._extract_safety_verdict(approach_result.response)
+            if verdict is None:
+                verdict = bool(approach_result.expert_alerts) or any(
+                    risk in approach_result.detected_risks
+                    for risk in ["qt_prolongation", "contraindication", "drug_interaction"]
+                )
+            detected_high_risk = verdict
         
         # Confusion matrix
         true_positive = detected_high_risk and ground_truth.is_high_risk

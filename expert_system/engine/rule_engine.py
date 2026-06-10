@@ -18,6 +18,7 @@ from expert_system.rules.interaction_rules import (
     CYPInhibitorInteractionRule,
     BetaBlockerInteractionRule,
     DatabaseDrugInteractionRule,
+    RenalContraindicatedAntiarrhythmicRule,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,7 @@ class RuleEngine:
             CYPInhibitorInteractionRule(),
             BetaBlockerInteractionRule(),
             DatabaseDrugInteractionRule(),
+            RenalContraindicatedAntiarrhythmicRule(),
         ])
         return rules
 
