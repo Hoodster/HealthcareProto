@@ -15,7 +15,7 @@ from api.services.chat_service import ChatService
 router = APIRouter(prefix="/chats", tags=["chats"], dependencies=[Depends(get_current_user), Depends(get_db_session)])
 
 
-@router.post("/send", response_model=schemas.MessageOut)
+@router.post("/send", response_model=schemas.ChatReplyOut)
 def send_chat_message(
     payload: schemas.MessageIn,
     user: Optional[User] = Depends(get_current_user),

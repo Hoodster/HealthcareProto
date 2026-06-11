@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from api.services.mimic_service import get_heart_patients
-from api.services.pipeline_service import PipelineService
+from api.services.pipeline_service import PipelineService, normalize_approaches
 from expert_system.rules.interaction_rules import ANTIARRHYTHMIC_DRUGS, QT_PROLONGING_DRUGS
 
 OutcomeFilter = Literal["all", "died", "survived"]
@@ -131,6 +131,8 @@ class OutcomeComparisonService:
     ) -> OutcomeComparisonReport:
         if approaches is None:
             approaches = ["genai", "rag"]
+        else:
+            approaches = normalize_approaches(approaches) or ["genai", "rag"]
 
         from api.services.mimic_service import get_patient_prescriptions
 

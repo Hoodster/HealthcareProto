@@ -194,6 +194,96 @@ class PatientService:
             gender=gender,
             weight=None,
         )
+
+    @staticmethod
+    def _mimic_primary_diagnosis(db: Session, subject_id: int, hadm_id: int) -> str | None:
+        from sqlalchemy.orm import joinedload
+
+        from api import models
+
+        stmt = (
+            select(models.MimicDiagnosisICD)
+            .options(joinedload(models.MimicDiagnosisICD.icd_definition))
+            .where(
+                models.MimicDiagnosisICD.subject_id == subject_id,
+                models.MimicDiagnosisICD.hadm_id == hadm_id,
+            )
+            .order_by(models.MimicDiagnosisICD.seq_num.asc())
+            .limit(1)
+        )
+        row = db.execute(stmt).scalar_one_or_none()
+        if row is None:
+            return None
+        if row.icd_definition and row.icd_definition.short_title:
+            return row.icd_definition.short_title
+        return row.icd9_code
+
+    @staticmethod
+    def patient_to_out(db: Session, patient: Patient) -> schemas.PatientOut:
+        primary = None
+        if patient.mimic_subject_id is not None and patient.mimic_hadm_id is not None:
+            primary = PatientService._mimic_primary_diagnosis(
+                db, patient.mimic_subject_id, patient.mimic_hadm_id
+            )
+        return schemas.PatientOut(
+            patient_id=patient.patient_id,
+            user_id=patient.user_id,
+            dob=patient.dob,
+            sex=patient.sex,  # type: ignore[arg-type]
+            mimic_subject_id=patient.mimic_subject_id,
+            mimic_hadm_id=patient.mimic_hadm_id,
+            mimic_primary_diagnosis=primary,
+        )
+
+    @staticmethod
+    def resolve_patient_context(patient_id: str, db: Session):
+        """Build PatientContext from MIMIC link when set, else from manual history."""
+        from expert_system.models.patient_context import PatientContext
+
+        patient = PatientService.get_by_id(db, patient_id)
+        if patient.mimic_subject_id is not None and patient.mimic_hadm_id is not None:
+            from api.services.mimic_service import build_mimic_patient_context
+
+            ctx = build_mimic_patient_context(
+                patient.mimic_subject_id, patient.mimic_hadm_id, db
+            )
+            return ctx.model_copy(update={"patient_id": patient_id})
+        return PatientService.build_patient_context(patient_id, db)
+
+    @staticmethod
+    def assign_mimic(
+        db: Session,
+        patient_id: str,
+        subject_id: int,
+        hadm_id: int,
+    ) -> Patient:
+        from api.services.mimic_service import build_mimic_patient_context
+
+        patient = PatientService.get_by_id(db, patient_id)
+        build_mimic_patient_context(subject_id, hadm_id, db)
+        patient.mimic_subject_id = subject_id
+        patient.mimic_hadm_id = hadm_id
+        db.commit()
+        db.refresh(patient)
+        return patient
+
+    @staticmethod
+    def unassign_mimic(db: Session, patient_id: str) -> Patient:
+        patient = PatientService.get_by_id(db, patient_id)
+        patient.mimic_subject_id = None
+        patient.mimic_hadm_id = None
+        db.commit()
+        db.refresh(patient)
+        return patient
+
+    @staticmethod
+    def get_patient_detail(db: Session, patient_id: str) -> schemas.PatientDetailOut:
+        patient = PatientService.get_by_id(db, patient_id)
+        ctx = PatientService.resolve_patient_context(patient_id, db)
+        return schemas.PatientDetailOut(
+            patient=PatientService.patient_to_out(db, patient),
+            context=ctx.model_dump(),
+        )
         
     @staticmethod
     def delete_all_patients(db: Session, user: User | None = None):

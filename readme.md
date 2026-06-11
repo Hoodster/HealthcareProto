@@ -1,9 +1,4 @@
-<p align="center">
-  <img
-    src="https://mir-s3-cdn-cf.behance.net/project_modules/disp/ef5103232954083.692a23beb7a5d.gif"
-    width="1000"
-  />
-</p>
+
 
 # HealthcareProto
 
@@ -26,26 +21,30 @@ python scripts/run_comparison.py --limit 30 --antiarrhythmic-only --markdown art
 
 Monitoring per pacjent: `GET /hp_proto/api/pipeline/antiarrhythmic-safety/{subject_id}/{hadm_id}`
 
-Serwis: https://azaphtn4tglr3jlgw.azurewebsites.net/hp_proto/api/swagger
+Serwis: [https://azaphtn4tglr3jlgw.azurewebsites.net/hp_proto/api/swagger](https://azaphtn4tglr3jlgw.azurewebsites.net/hp_proto/api/swagger)
 
 ## Instrukcja
 
-1. **Zobacz gotowy raport** → [`artifacts/safety.md`](artifacts/safety.md). Czyta się go
-   w trzech sekcjach:
-   - **Sekcja 1** — jak często każde podejście (expert / GenAI / RAG) zgłasza obawę
-     i jak to się ma do zgonu (% obaw ogółem vs wśród zmarłych vs przeżywających).
-   - **Sekcja 2** — zgodność GenAI vs RAG (oba / tylko jeden / żadne).
-   - **Sekcja 3** — studia przypadków, gdzie podejścia się **różnią**, z fragmentami
-     odpowiedzi AI i źródłem RAG. To tu widać „co AI zrobiło inaczej".
+Zalecana ścieżka — od gotowego wyniku do kodu:
+
+1. **Zobacz gotowy raport** → `[artifacts/safety.md](artifacts/safety.md)`. Czyta się go
+  w trzech sekcjach:
+  - **Sekcja 1** — jak często każde podejście (expert / GenAI / RAG) zgłasza obawę
+  i jak to się ma do zgonu (% obaw ogółem vs wśród zmarłych vs przeżywających).
+  - **Sekcja 2** — zgodność GenAI vs RAG (oba / tylko jeden / żadne).
+  - **Sekcja 3** — studia przypadków, gdzie podejścia się **różnią**, z fragmentami
+  odpowiedzi AI i źródłem RAG. To tu widać „co AI zrobiło inaczej".
 2. **Wygeneruj świeże wyniki** dla dowolnego N → `python scripts/run_comparison.py --limit 30 --markdown artifacts/safety.md`.
-   Duże N pobierane jest stronami (`--chunk`), więc nie trafia w timeout bramy.
-   Szczegóły komend i flag: [`QUICKSTART.md`](QUICKSTART.md).
+  Duże N pobierane jest stronami (`--chunk`), więc nie trafia w timeout bramy.
+   Szczegóły komend i flag: `[QUICKSTART.md](QUICKSTART.md)`.
 3. **Sprawdź definicje** (czym jest „sygnał bezpieczeństwa", dlaczego bez F1/PPV) →
-   [`study_example/METHODOLOGY.md`](study_example/METHODOLOGY.md).
+  `[study_example/METHODOLOGY.md](study_example/METHODOLOGY.md)`.
 4. **Przejrzyj jednego pacjenta** interaktywnie w Swaggerze →
-   `GET /hp_proto/api/pipeline/antiarrhythmic-safety/{subject_id}/{hadm_id}`
+  `GET /hp_proto/api/pipeline/antiarrhythmic-safety/{subject_id}/{hadm_id}`
    (zwraca `safety_score`, alerty eksperta, werdykty GenAI/RAG i użyte źródła RAG).
 5. **Wejdź w kod** wg sekcji *Struktura* poniżej (reguły eksperta, pipeline, RAG).
+
+**Integracja frontu:** → **[FRONTEND_API.md](FRONTEND_API.md)** (auth, chat LLM/RAG, przypisanie MIMIC, comparison, typy TS)
 
 ## Struktura
 
@@ -64,12 +63,16 @@ alembic upgrade head
 uvicorn api.app:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Swagger: http://localhost:8000/hp_proto/api/swagger
+Swagger: [http://localhost:8000/hp_proto/api/swagger](http://localhost:8000/hp_proto/api/swagger)
 
 ## Więcej
 
-| Dokument | Zawartość |
-|----------|-----------|
-| [QUICKSTART.md](QUICKSTART.md) | Jak pobrać wyniki (API / skrypt) |
-| [study_example/METHODOLOGY.md](study_example/METHODOLOGY.md) | Definicje metryk do pracy |
-| [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md) | Redeploy, MIMIC seed, migracje |
+
+| Dokument                                                     | Zawartość                        |
+| ------------------------------------------------------------ | -------------------------------- |
+| [QUICKSTART.md](QUICKSTART.md)                               | Jak pobrać wyniki (API / skrypt) |
+| [FRONTEND_API.md](FRONTEND_API.md)                           | Instrukcja integracji frontu     |
+| [study_example/METHODOLOGY.md](study_example/METHODOLOGY.md) | Definicje metryk do pracy        |
+| [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md)                   | Redeploy, MIMIC seed, migracje   |
+
+

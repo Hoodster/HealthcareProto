@@ -6,9 +6,9 @@ from sqlalchemy.orm import Session
 
 from api.db import get_db_session
 from api.auth import get_current_user
-from api.services.pipeline_service import PipelineService
+from api.services.pipeline_service import PipelineService, normalize_approaches
 from api.services.outcome_comparison_service import OutcomeComparisonService, OutcomeComparisonReport
-from models.schemas.pipeline_schema import PipelineComparisonResult
+from models.schemas.pipeline_schema import PipelineComparisonResult, AntiarrhythmicSafetyReport
 
 router = APIRouter(
     prefix="/pipeline",
@@ -37,8 +37,8 @@ async def evaluate_mimic_patient(
     subject_id: int,
     hadm_id: int,
     approaches: Optional[list[str]] = Query(
-        default=["expert", "genai", "rag_full"],
-        description="Approaches to evaluate: expert, genai, rag_full"
+        default=["expert", "genai", "rag"],
+        description="Approaches to evaluate: expert, genai, rag (rag_full accepted as alias)"
     ),
     include_raw_context: bool = Query(
         default=False,
@@ -93,7 +93,7 @@ async def evaluate_mimic_patient(
         ground truth, and metrics for each approach
     """
     # Validate approaches
-    valid_approaches = {"expert", "genai", "rag_full"}
+    valid_approaches = {"expert", "genai", "rag", "rag_full"}
     if approaches:
         invalid = set(approaches) - valid_approaches
         if invalid:
@@ -101,6 +101,7 @@ async def evaluate_mimic_patient(
                 status_code=400,
                 detail=f"Invalid approaches: {invalid}. Must be one of: {valid_approaches}"
             )
+        approaches = normalize_approaches(approaches)
     
     try:
         result = service.evaluate_mimic_patient(
@@ -129,13 +130,22 @@ async def evaluate_mimic_patient(
 )
 def outcome_comparison(
     limit: int = Query(default=20, ge=1, le=200),
+    offset: int = Query(
+        default=0,
+        ge=0,
+        description="Patient index to start from (pagination cursor). Use response next_offset for next page.",
+    ),
     outcome: str = Query(
         default="all",
         description="Filter: all | died | survived (MIMIC hospital_expire_flag)",
     ),
     approaches: list[str] = Query(
-        default=["genai", "rag_full"],
-        description="Approaches to compare (genai = LLM only, rag_full = RAG+LLM+expert)",
+        default=["genai", "rag"],
+        description="Approaches to compare (genai = LLM only, rag = RAG+LLM+expert; rag_full alias)",
+    ),
+    antiarrhythmic_only: bool = Query(
+        default=False,
+        description="Restrict cohort to patients exposed to antiarrhythmic drugs",
     ),
     db: Session = Depends(get_db_session),
 ):
@@ -149,17 +159,40 @@ def outcome_comparison(
     """
     if outcome not in ("all", "died", "survived"):
         raise HTTPException(status_code=400, detail="outcome must be all, died, or survived")
-    valid = {"genai", "rag_full"}
+    valid = {"genai", "rag", "rag_full"}
     invalid = set(approaches) - valid
     if invalid:
         raise HTTPException(status_code=400, detail=f"Invalid approaches: {invalid}")
+    approaches = normalize_approaches(approaches) or ["genai", "rag"]
 
     try:
         return OutcomeComparisonService.run(
             db,
             limit=limit,
+            offset=offset,
             approaches=approaches,
             outcome_filter=outcome,  # type: ignore[arg-type]
+            antiarrhythmic_only=antiarrhythmic_only,
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/antiarrhythmic-safety/{subject_id}/{hadm_id}",
+    response_model=AntiarrhythmicSafetyReport,
+    summary="Per-patient antiarrhythmic drug-safety monitoring (expert + GenAI + RAG)",
+)
+def antiarrhythmic_safety(
+    subject_id: int,
+    hadm_id: int,
+    db: Session = Depends(get_db_session),
+    service: PipelineService = Depends(get_pipeline_service),
+) -> AntiarrhythmicSafetyReport:
+    """Monitor antiarrhythmic regimen safety via expert, GenAI and RAG."""
+    try:
+        return service.assess_antiarrhythmic_safety(subject_id, hadm_id, db)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

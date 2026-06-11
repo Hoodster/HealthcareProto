@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
@@ -61,9 +62,14 @@ def create_app() -> FastAPI:
         lifespan=_lifespan,
     )
 
+    cors_origins = [
+        o.strip()
+        for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+        if o.strip()
+    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000"],
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

@@ -86,6 +86,8 @@ class Patient(Base):
     user_id: Mapped[str | None] = mapped_column(ForeignKey(f"{APP_SCHEMA_NAME}.users.id"), index=True, nullable=True)
     dob: Mapped[date | None] = mapped_column(Date, nullable=True)
     sex: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    mimic_subject_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    mimic_hadm_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
     user: Mapped[User | None] = relationship(
         back_populates="patient",

@@ -10,8 +10,19 @@ load_dotenv()
 
 
 @lru_cache(maxsize=1)
+def _keyvault_url() -> Optional[str]:
+    url = os.getenv("AZURE_KEYVAULT_URL")
+    if url:
+        return url.rstrip("/") + "/"
+    name = os.getenv("KEY_VAULT_NAME")
+    if name:
+        return f"https://{name}.vault.azure.net/"
+    return None
+
+
+@lru_cache(maxsize=1)
 def _keyvault_client():
-    vault_url = os.getenv("AZURE_KEYVAULT_URL")
+    vault_url = _keyvault_url()
     if not vault_url:
         return None
     try:
@@ -45,10 +56,18 @@ def get_database_connection_schema() -> dict[str, str]:
 
 
 def get_database_connection_url() -> str:
-    return (
-        _get_secret("DbUrl", "DB_URL")
-        or "sqlite:///.output/application.db"
-    )
+    url = _get_secret("DbUrl", "DB_URL") or _get_secret("db-url", "DB_URL")
+    if url:
+        return url
+
+    parts = get_database_connection_schema()
+    if all(parts.get(k) for k in ("host", "port", "database", "user", "password")):
+        return (
+            f"postgresql://{parts['user']}:{parts['password']}"
+            f"@{parts['host']}:{parts['port']}/{parts['database']}"
+        )
+
+    return "sqlite:///.output/application.db"
 
 
 def get_openai_api_key() -> Optional[str]:

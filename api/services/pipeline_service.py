@@ -28,6 +28,13 @@ from retrieved_augmentation.augmentor import HealthcareContextAugmentor
 from retrieved_augmentation.example_usage import InMemoryVectorStore, SimpleRetriever
 
 
+def normalize_approaches(approaches: Optional[list[str]]) -> Optional[list[str]]:
+    """Map legacy ``rag_full`` to ``rag`` so routes and pipeline stay in sync."""
+    if approaches is None:
+        return None
+    return ["rag" if a == "rag_full" else a for a in approaches]
+
+
 class PipelineService:
     """Service for evaluating MIMIC patients through multiple approaches."""
     
@@ -59,6 +66,8 @@ class PipelineService:
         """
         if approaches is None:
             approaches = ["expert", "genai", "rag"]
+        else:
+            approaches = normalize_approaches(approaches) or ["expert", "genai", "rag"]
         
         # Build patient context from MIMIC
         patient_context = build_mimic_patient_context(subject_id, hadm_id, db)

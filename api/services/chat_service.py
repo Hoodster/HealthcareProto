@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from api.ai_models import ChatGPTAIModel
 from api.auth import HPDbSession
-from api.rag_store import build_rag_query, retrieve_context
+from api.rag_store import build_rag_query, retrieve_context_with_sources
 from api.services.patient_service import PatientService
 import models.schemas as schemas
 from api.models import ChatMessage, User
@@ -22,7 +22,7 @@ class ChatService:
         db: HPDbSession,
         payload: schemas.MessageIn,
         current_user: Optional[User] = None,
-    ) -> ChatMessage:
+    ) -> schemas.ChatReplyOut:
         if not payload.session_id:
             stmt = select(ChatMessage.session_id).order_by(ChatMessage.created_at.desc()).limit(1)
             result = db.execute(stmt).scalar()
@@ -55,19 +55,24 @@ class ChatService:
             patient = PatientService.get_by_id(db, payload.patient_id)
             if current_user and not current_user.staff and patient.user_id != current_user.id:
                 raise HTTPException(status_code=403, detail="Not authorized for this patient")
-            patient_ctx = PatientService.build_patient_context(payload.patient_id, db)
+            patient_ctx = PatientService.resolve_patient_context(payload.patient_id, db)
 
-        rag_query = build_rag_query(payload.content, patient_ctx)
-        rag_ctx = retrieve_context(
-            rag_query,
-            top_k=6,
-            patient_id=payload.patient_id,
-        )
+        rag_sources: list[dict] = []
+        rag_ctx: str | None = None
+        if payload.mode == "rag":
+            rag_query = build_rag_query(payload.content, patient_ctx)
+            rag_ctx, rag_sources = retrieve_context_with_sources(
+                rag_query,
+                top_k=6,
+                patient_id=payload.patient_id,
+            )
+            rag_ctx = rag_ctx or None
+
         ai_answer = ChatGPTAIModel().answer(
             payload.content,
             patient_data=patient_ctx,
             history=history,
-            rag_context=rag_ctx or None,
+            rag_context=rag_ctx,
         )
         new_response = ChatMessage(
             sender_role="assistant",
@@ -77,8 +82,13 @@ class ChatService:
         )
         db.add(new_response)
         db.commit()
+        db.refresh(new_response)
 
-        return new_response
+        return schemas.ChatReplyOut(
+            message=schemas.MessageOut.model_validate(new_response),
+            mode=payload.mode,
+            rag_sources=rag_sources,
+        )
 
     @staticmethod
     def list_chats(db: Session, user_id: str) -> list[schemas.UserChatItemOut]:

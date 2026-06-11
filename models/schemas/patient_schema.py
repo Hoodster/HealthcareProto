@@ -6,10 +6,9 @@ import datetime as dt
 PatientSex = Literal["male", "female"]
 
 
-class PatientCreate(BaseModel):
-    user_id: str | None = None
-    dob: dt.date | None = None
-    sex: PatientSex | None = None
+class MimicLinkIn(BaseModel):
+    subject_id: int
+    hadm_id: int
 
 
 class PatientOut(BaseModel):
@@ -17,10 +16,25 @@ class PatientOut(BaseModel):
     user_id: str | None
     dob: dt.date | None
     sex: PatientSex | None
+    mimic_subject_id: int | None = None
+    mimic_hadm_id: int | None = None
+    mimic_primary_diagnosis: str | None = None
     
     model_config = {
         "from_attributes": True
     }
+
+
+class PatientDetailOut(BaseModel):
+    """Patient profile plus resolved clinical context (MIMIC-linked or manual history)."""
+    patient: PatientOut
+    context: dict
+
+
+class PatientCreate(BaseModel):
+    user_id: str | None = None
+    dob: dt.date | None = None
+    sex: PatientSex | None = None
 
 
 class PatientFileCreate(BaseModel):
