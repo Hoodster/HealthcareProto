@@ -7,7 +7,6 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes.auth_routes import router as auth_router
-from api.routes.ai_routes import router as ai_router
 from api.routes.chat_routes import router as chat_router
 from api.routes.patient_routes import router as patient_router
 from api.routes.mimic_routes import router as mimic_router
