@@ -218,7 +218,10 @@ Managed by Bicep / azd (see `infra/main.bicep`):
 | Variable | Source | Notes |
 |----------|--------|-------|
 | `DB_URL` | Key Vault reference | PostgreSQL connection string |
-| `API_OPENAI` | azd env / Bicep param | OpenAI API key |
+| `API_OPENAI` | azd env / Bicep param | OpenAI API key (embeddings + optional LLM) |
+| `API_CLAUDE` | Key Vault / App Settings | Anthropic API key when `LLM_PROVIDER=claude` |
+| `LLM_PROVIDER` | App Settings | `openai` (default) or `claude` — GenAI/RAG completion only |
+| `LLM_MODEL` | App Settings | e.g. `gpt-4o` or `claude-sonnet-4-20250514` |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | App Insights | Auto-configured |
 | `WEBSITES_PORT` | `8000` | Container listen port |
 
@@ -229,6 +232,9 @@ To view or update azd settings:
 ```bash
 azd env get-values          # list all (includes secrets)
 azd env set API_OPENAI <key>
+# Optional — Claude provider for GenAI/RAG (RAG embeddings stay on OpenAI):
+az keyvault secret set --vault-name <kv-name> --name ApiClaude --value <anthropic-key>
+az webapp config appsettings set -g <rg> -n <app> --settings LLM_PROVIDER=claude LLM_MODEL=claude-sonnet-4-20250514
 ```
 
 ---

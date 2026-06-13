@@ -213,7 +213,9 @@ def index_patient_document(
         return 0
 
     doc_uuid = f"patient_{patient_id}_doc_{med_doc_id}"
-    embeddings = _embedder and _embedder.embed_batch(chunks)
+    if _embedder is None:
+        raise RuntimeError("Embedder not initialized")
+    embeddings = _embedder.embed_batch(chunks)
     client = _get_client()
     docs = []
     for idx, (chunk_text, emb) in enumerate(zip(chunks, embeddings)):

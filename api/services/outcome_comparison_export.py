@@ -20,7 +20,7 @@ CSV_COLUMNS = [
     "los_days",
     "discharge_location",
     "egfr",
-    "guideline_violations",
+    "expert_rule_tags",
     "expert_safety_concern",
     "genai_safety_concern",
     "rag_safety_concern",
@@ -59,7 +59,7 @@ def write_csv(report: OutcomeComparisonReport, path: Path) -> None:
                 "los_days": row.los_days if row.los_days is not None else "",
                 "discharge_location": row.discharge_location or "",
                 "egfr": row.egfr,
-                "guideline_violations": "|".join(row.guideline_violations),
+                "expert_rule_tags": "|".join(row.expert_rule_tags),
                 "expert_safety_concern": row.expert_safety_concern,
                 "genai_safety_concern": row.genai_safety_concern,
                 "rag_safety_concern": row.rag_safety_concern,
@@ -209,8 +209,8 @@ def write_markdown(report: OutcomeComparisonReport, path: Path) -> None:
                 f"- Sygnał — expert: **{_concern(r.expert_safety_concern)}**, "
                 f"GenAI: **{_concern(r.genai_safety_concern)}**, RAG: **{_concern(r.rag_safety_concern)}**"
             )
-            if r.guideline_violations:
-                lines.append(f"- Proxy reguł: {', '.join(r.guideline_violations)}")
+            if r.expert_rule_tags:
+                lines.append(f"- Expert rule tags: {', '.join(r.expert_rule_tags)}")
             lines.append(f"- Top źródło RAG: {top_src}")
             if r.genai_response_excerpt:
                 lines.append(f"- GenAI: _{r.genai_response_excerpt}_")

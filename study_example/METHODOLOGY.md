@@ -19,10 +19,12 @@ propafenone, amiodarone, dronedarone, sotalol, dofetilide, ibutilide.
 | Warstwa | Źródło | Co oznacza |
 |---------|--------|------------|
 | **A. Outcome MIMIC** | `mimiciii.admissions.hospital_expire_flag` | `1` = pacjent zmarł w szpitalu podczas tej hospitalizacji; `0` = wypisany żywy. To **jedyny fakt retrospektywny** z bazy. |
-| **B. Proxy wytycznych** | `PipelineService._compute_ground_truth()` | Reguły: ≥2 leki QT, eGFR &lt; 30. To **nie jest diagnoza lekarza** — operacjonalizacja do benchmarku. |
-| **C. Sygnał systemu** | expert / genai / rag | Czy dane podejście **uznało** wysokie ryzyko bezpieczeństwa leków (definicja poniżej). |
+| **B. Wytyczne (expert)** | `ExpertSystemResult.rule_tags` z [`rule_tags.py`](../expert_system/rule_tags.py) | Tagi z **odpalonych reguł** eksperta (QT, nerki, HF, CYP…). Predykaty w [`guideline_checks.py`](../expert_system/guideline_checks.py). |
+| **C. Sygnał LLM/RAG** | genai / rag (`LLM_PROVIDER=openai|claude`) | Czy dane podejście **uznało** wysokie ryzyko bezpieczeństwa leków (definicja poniżej). |
 
 **Ważne:** System **nie widzi** `hospital_expire_flag` w momencie oceny — widzi tylko leki, eGFR, rozpoznania itd. Porównanie z zgonem to analiza retrospektywna, **nie predykcja śmierci**.
+
+Expert **jest** operacjonalizacją wytycznych — tagi `rule_tags` pochodzą z odpalonych reguł, nie z osobnej warstwy proxy.
 
 ---
 
@@ -48,12 +50,23 @@ pacjentów z faktyczną **ekspozycją antyarytmiczną** (`on_antiarrhythmic = tr
 
 | Reguła | Co wykrywa |
 |--------|-----------|
-| `QTProlongingDrugInteractionRule` | leki wydłużające QT (additive torsade) — **critical** |
-| `CYPInhibitorInteractionRule` | inhibitory CYP zwiększające poziom antyarytmiku — **high** |
-| `BetaBlockerInteractionRule` | additive bradykardia z antyarytmikiem — **moderate** |
-| `DatabaseDrugInteractionRule` | interakcje par leków z DrugBank — **high** |
-| `RenalContraindicatedAntiarrhythmicRule` | sotalol/dofetilide przeciwwskazane przy eGFR < 30 (**contraindicated**); procainamide/disopyramide → redukcja dawki |
-| `SevereRenalImpairmentRule` / `Moderate` / `Mild` | dawkowanie wg eGFR |
+| `SevereRenalImpairmentRule` / `Moderate` / `Mild` | progi eGFR |
+| `QTProlongingDrugInteractionRule` | ≥2 leki QT lub combo antyarytmik QT + inny lek QT — **critical** |
+| `CYPInhibitorInteractionRule` / `CYPInducerInteractionRule` | inhibitory / induktory CYP |
+| `BetaBlockerInteractionRule` | β-bloker + antyarytmik — **moderate** |
+| `DatabaseDrugInteractionRule` | pary leków DrugBank — **high** |
+| `RenalContraindicatedAntiarrhythmicRule` | sotalol/dofetilide + eGFR&lt;30 — **contraindicated** |
+| `AntiplateletQtRiskRule` | antyagregacja + lek QT |
+| `AmiodaroneMonitoringRule` | alert monitoringu amiodaronu |
+| `ClassICStructuralHeartRule` | flecainide/propafenone + HF/IHD — **contraindicated** |
+| `DronedaroneHeartFailureRule` | dronedarone + HF — **contraindicated** |
+| `NonDhpCcbHeartFailureRule` | diltiazem/werapamil + HF |
+| `DigoxinRenalAgeRule` | digoxin + eGFR&lt;30 lub wiek≥75 |
+| `AvBlockBradycardiaRiskRule` | AV block (ICD) + bradykardia-risk drugs |
+
+Reguły rate-control (`digoxin`, `diltiazem`, `verapamil`) działają na liście leków pacjenta, ale **nie** rozszerzają filtra kohorty `--antiarrhythmic-only`.
+
+Predykaty reguł: [`guideline_checks.py`](../expert_system/guideline_checks.py). Mapowanie reguła→tag: [`rule_tags.py`](../expert_system/rule_tags.py).
 
 ### Definicja „sygnału bezpieczeństwa” per podejście
 
@@ -80,7 +93,7 @@ Skrypt `scripts/run_comparison.py` generuje tabelę (CSV) i raport (Markdown) z 
 
 - `mimic_died` — outcome z MIMIC (warstwa A)
 - `antiarrhythmic_drugs` / `on_antiarrhythmic` — ekspozycja antyarytmiczna
-- `qt_drug_count`, `guideline_violations` — proxy (warstwa B), **osobno**
+- `qt_drug_count`, `expert_rule_tags` — tagi wytyczne z odpalonych reguł eksperta
 - `expert_safety_concern` / `genai_safety_concern` / `rag_safety_concern` — sygnał (warstwa C)
 - `rag_sources` / `rag_sources_used` — **dokumenty faktycznie przetworzone przez RAG** (filename + score)
 - `genai_response_excerpt` / `rag_response_excerpt` — fragment odpowiedzi do ręcznej weryfikacji
@@ -89,12 +102,16 @@ Skrypt `scripts/run_comparison.py` generuje tabelę (CSV) i raport (Markdown) z 
 ### Dlaczego NIE liczymy precyzji/czułości/F1
 
 MIMIC **nie zawiera złotego standardu** etykiety „zagrożenie bezpieczeństwa
-antyarytmiku”. Każdy możliwy target jest wadliwy:
+antyarytmiku”. API pipeline (`evaluate-mimic`) zwraca **sygnały bezpieczeństwa**
+(`detected_high_risk`, `risk_level` 0–2) i **etykiety referencyjne** warstw A/B
+(`reference_labels`) — **bez** F1, precision, recall.
+
+Każdy możliwy target klasyfikacji byłby wadliwy:
 
 - **zgon** — „safety concern” ≠ „pacjent umrze” (pacjent z ryzykownym lekiem może
   przeżyć, bo lekarz zareagował); PPV/F1 byłyby z definicji zaniżone i mylące;
-- **proxy reguł** (≥2 leki QT / eGFR<30) — system ekspercki używa **tych samych**
-  reguł, więc walidacja byłaby błędnym kołem (~100% z definicji).
+- **tagi wytyczne eksperta** — system LLM/RAG porównujemy z expertem, więc walidacja
+  expert vs expert byłaby błędnym kołem (~100% z definicji).
 
 Dlatego raport stosuje **trzy analizy bez „prawdy”**:
 

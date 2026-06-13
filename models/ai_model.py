@@ -13,6 +13,7 @@ class PatientReferenceData:
     age: int
     gender: str
     egfr: Optional[float] = None
+    qtc: Optional[int] = None
     medications: Optional[list[str]] = None
     conditions: Optional[list[str]] = None
 

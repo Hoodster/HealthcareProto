@@ -9,6 +9,7 @@ from typing import Literal, Optional
 
 from sqlalchemy.orm import Session
 
+from api.services.ai_service import DEFAULT_LLM_MODELS, normalize_llm_provider
 from api.services.mimic_service import get_heart_patients, get_patient_prescriptions
 from api.services.pipeline_service import PipelineService
 from api.services.risk_levels import (
@@ -25,11 +26,14 @@ OutcomeFilter = Literal["all", "died", "survived"]
 PILOT_COLUMNS = [
     "subject_id",
     "hadm_id",
+    "llm_provider",
+    "llm_model",
     "outcome",
     "on_antiarrhythmic",
     "icu_admitted",
     "los_days",
     "expert_risk",
+    "expert_tags",
     "llm_risk",
     "rag_risk",
     "expert_flags",
@@ -44,11 +48,14 @@ PILOT_COLUMNS = [
 class PilotRow:
     subject_id: int
     hadm_id: int
+    llm_provider: str
+    llm_model: str
     outcome: str
     on_antiarrhythmic: bool
     icu_admitted: bool
     los_days: Optional[float]
     expert_risk: int
+    expert_tags: str
     llm_risk: int
     rag_risk: int
     expert_flags: str
@@ -74,6 +81,8 @@ class PilotSummary:
     rag_flag_total: int
     rag_only_concern: int
     genai_only_concern: int
+    expert_agreement_pct: float = 0.0
+    rag_agreement_pct: float = 0.0
 
 
 class PilotService:
@@ -85,8 +94,12 @@ class PilotService:
         offset: int = 0,
         outcome_filter: OutcomeFilter = "all",
         antiarrhythmic_only: bool = False,
+        llm_provider: str = "openai",
+        llm_model: Optional[str] = None,
     ) -> tuple[list[PilotRow], PilotSummary]:
-        pipeline = PipelineService()
+        provider = normalize_llm_provider(llm_provider)
+        model = llm_model or DEFAULT_LLM_MODELS[provider]
+        pipeline = PipelineService(llm_provider=provider, llm_model=model)
         patients = get_heart_patients(db, with_icu_stay=False)
         rows: list[PilotRow] = []
 
@@ -128,9 +141,11 @@ class PilotService:
 
             expert_level = 0
             expert_flag_list: list[str] = []
+            expert_tag_list: list[str] = []
             if result.expert_result:
                 expert_level = expert_risk_level(result.expert_result.decision)
                 expert_flag_list = expert_flags(result.expert_result.decision)
+                expert_tag_list = list(result.expert_result.rule_tags or [])
 
             llm_level = 0
             llm_flag_list: list[str] = []
@@ -167,11 +182,14 @@ class PilotService:
                 PilotRow(
                     subject_id=subject_id,
                     hadm_id=hadm_id,
+                    llm_provider=provider,
+                    llm_model=model,
                     outcome=outcome,
                     on_antiarrhythmic=on_aa,
                     icu_admitted=ref.icu_admitted,
                     los_days=ref.los_days,
                     expert_risk=expert_level,
+                    expert_tags="|".join(expert_tag_list),
                     llm_risk=llm_level,
                     rag_risk=rag_level,
                     expert_flags="|".join(expert_flag_list),
@@ -206,6 +224,10 @@ class PilotService:
         disagree = sum(1 for r in rows if r.agreement == "disagreement")
         rag_only = sum(1 for r in rows if r.rag_risk >= 1 and r.llm_risk == 0)
         genai_only = sum(1 for r in rows if r.llm_risk >= 1 and r.rag_risk == 0)
+        expert_match = sum(
+            1 for r in rows if r.expert_risk == r.llm_risk and r.expert_risk == r.rag_risk
+        )
+        rag_match = sum(1 for r in rows if r.expert_risk == r.rag_risk)
         return PilotSummary(
             total=len(rows),
             full_agreement_pct=round(100.0 * full / n, 1),
@@ -218,6 +240,8 @@ class PilotService:
             rag_flag_total=sum(len(r.rag_flags.split("|")) if r.rag_flags else 0 for r in rows),
             rag_only_concern=rag_only,
             genai_only_concern=genai_only,
+            expert_agreement_pct=round(100.0 * expert_match / n, 1),
+            rag_agreement_pct=round(100.0 * rag_match / n, 1),
         )
 
 
@@ -231,11 +255,14 @@ def write_pilot_csv(rows: list[PilotRow], path: Path) -> None:
                 {
                     "subject_id": r.subject_id,
                     "hadm_id": r.hadm_id,
+                    "llm_provider": r.llm_provider,
+                    "llm_model": r.llm_model,
                     "outcome": r.outcome,
                     "on_antiarrhythmic": r.on_antiarrhythmic,
                     "icu_admitted": r.icu_admitted,
                     "los_days": r.los_days if r.los_days is not None else "",
                     "expert_risk": r.expert_risk,
+                    "expert_tags": r.expert_tags,
                     "llm_risk": r.llm_risk,
                     "rag_risk": r.rag_risk,
                     "expert_flags": r.expert_flags,

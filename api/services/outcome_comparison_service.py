@@ -39,8 +39,9 @@ class OutcomeComparisonRow(BaseModel):
     )
     discharge_location: Optional[str] = None
     egfr: float
-    guideline_violations: list[str] = Field(
-        description="Proxy rules only — NOT clinical ground truth"
+    expert_rule_tags: list[str] = Field(
+        default_factory=list,
+        description="Guideline tags from fired expert rules",
     )
     genai_safety_concern: Optional[bool] = None
     rag_safety_concern: Optional[bool] = None
@@ -240,6 +241,10 @@ class OutcomeComparisonService:
             if genai_concern is not None and rag_concern is not None:
                 same = genai_concern == rag_concern
 
+            expert_tags: list[str] = []
+            if result.expert_result:
+                expert_tags = list(result.expert_result.rule_tags or [])
+
             rows.append(
                 OutcomeComparisonRow(
                     subject_id=subject_id,
@@ -254,7 +259,7 @@ class OutcomeComparisonService:
                     los_days=ref.los_days,
                     discharge_location=ref.discharge_location,
                     egfr=float(ctx.get("egfr", 90)),
-                    guideline_violations=list(ref.guideline_violations),
+                    expert_rule_tags=expert_tags,
                     genai_safety_concern=genai_concern,
                     rag_safety_concern=rag_concern,
                     genai_detected_risks=genai_risks,

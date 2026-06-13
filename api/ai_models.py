@@ -157,3 +157,109 @@ class ChatGPTAIModel(AIModel):
     def list_models(self):
         client = self.__getclient__()
         return client.models.list()
+
+
+class ClaudeAIModel(AIModel):
+    def __init__(
+        self,
+        model: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+        question_prompt: Optional[str] = None,
+        summary_prompt: Optional[str] = None,
+    ):
+        super().__init__(
+            name="Claude",
+            description="Anthropic Claude model for conversational AI tasks.",
+            model=model or "claude-sonnet-4-20250514",
+            prompts=AIModelPrompts(
+                system_prompt=system_prompt or DEFAULT_SYSTEM_PROMPT,
+                question_prompt=question_prompt or DEFAULT_CONVERSATION_PROMPT,
+                summary_prompt=summary_prompt or DEFAULT_SUMMARY_PROMPT,
+            ),
+        )
+
+    def __getclient__(self):
+        import anthropic
+
+        from api.config import get_claude_api_key
+
+        api_key = get_claude_api_key()
+        if not api_key:
+            raise RuntimeError(
+                "API_CLAUDE not set. Set API_CLAUDE in the environment or in .env."
+            )
+        return anthropic.Anthropic(api_key=api_key)
+
+    def _build_user_content(
+        self,
+        question: str,
+        patient_data=None,
+        rag_context: Optional[str] = None,
+    ) -> str:
+        parts: list[str] = []
+        if patient_data:
+            user_msg = (
+                f"Patient: age {patient_data.age}, gender {patient_data.gender}, "
+                f"eGFR {patient_data.egfr} mL/min/1.73m². "
+                f"Medications: {', '.join(patient_data.medications) if patient_data.medications else 'none'}. "
+                f"Conditions: {', '.join(patient_data.conditions) if patient_data.conditions else 'none'}. "
+            )
+            parts.append(
+                "During preparing an answer, consider patient's following conditions:\n"
+                f"{user_msg}"
+            )
+        if rag_context:
+            parts.append(
+                "Use the following clinical guideline excerpts to ground your answer.\n"
+                "Prefer information from these excerpts over your general knowledge when relevant.\n"
+                "If the excerpts do not address the question, rely on your clinical expertise.\n\n"
+                f"--- GUIDELINE EXCERPTS ---\n{rag_context}\n--- END EXCERPTS ---"
+            )
+        parts.append(self.prompts.question_prompt)
+        parts.append(question)
+        return "\n\n".join(parts)
+
+    def answer(
+        self,
+        question: str,
+        patient_data=None,
+        history: Optional[list[dict]] = None,
+        rag_context: Optional[str] = None,
+    ) -> str:
+        client = self.__getclient__()
+        messages: list[dict] = []
+        if history:
+            messages.extend(history)
+        messages.append(
+            {
+                "role": "user",
+                "content": self._build_user_content(question, patient_data, rag_context),
+            }
+        )
+        response = client.messages.create(
+            model=self.model,
+            max_tokens=MAX_TOKENS,
+            system=self.prompts.system_prompt,
+            messages=messages,  # type: ignore[arg-type]
+        )
+        text_blocks = [b.text for b in response.content if hasattr(b, "text")]
+        return "\n".join(text_blocks).strip()
+
+    def summarize(self, text: str) -> str:
+        client = self.__getclient__()
+        response = client.messages.create(
+            model=self.model,
+            max_tokens=MAX_TOKENS,
+            system=self.prompts.system_prompt,
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"{self.prompts.summary_prompt}\n\n{text}",
+                }
+            ],
+        )
+        text_blocks = [b.text for b in response.content if hasattr(b, "text")]
+        return "\n".join(text_blocks).strip()
+
+    def list_models(self):
+        return []

@@ -1,68 +1,53 @@
-"""Unit tests for layer B guideline checks."""
+"""Tests for shared guideline predicates used by expert rules."""
 
+from expert_system.guideline_checks import (
+    check_beta_blocker_interaction,
+    check_dronedarone_hf,
+    check_qt_aad_combo,
+    check_qt_interaction,
+    check_qt_rule_fires,
+    check_severe_renal,
+)
 from expert_system.models.patient_context import PatientContext
-from expert_system.guideline_checks import evaluate_guideline_violations
 
 
-def test_qt_interaction_two_drugs():
-    p = PatientContext(
-        egfr=80,
-        medications=["amiodarone", "azithromycin"],
-    )
-    tags = evaluate_guideline_violations(p)
-    assert "QT_INTERACTION" in tags
-    assert "QT_AAD_COMBO" in tags
+def _patient(**kwargs) -> PatientContext:
+    defaults = {
+        "age": 70,
+        "medications": [],
+        "egfr": 90.0,
+        "conditions": [],
+    }
+    defaults.update(kwargs)
+    return PatientContext(**defaults)
+
+
+def test_qt_interaction_two_qt_drugs():
+    p = _patient(medications=["amiodarone", "sotalol"])
+    assert check_qt_interaction(p)
+    assert check_qt_rule_fires(p)
+
+
+def test_qt_aad_combo():
+    p = _patient(medications=["amiodarone", "sotalol"])
+    assert check_qt_aad_combo(p)
+
+
+def test_beta_blocker_interaction_with_aad():
+    p = _patient(medications=["metoprolol", "amiodarone"])
+    assert check_beta_blocker_interaction(p)
+
+
+def test_severe_renal():
+    p = _patient(egfr=25.0)
+    assert check_severe_renal(p)
 
 
 def test_dronedarone_hf():
-    p = PatientContext(
-        egfr=55,
-        medications=["dronedarone"],
-        conditions=["congestive heart failure - unspecified"],
-    )
-    tags = evaluate_guideline_violations(p)
-    assert "DRONEDARONE_HF" in tags
+    p = _patient(medications=["dronedarone"], conditions=["heart failure"])
+    assert check_dronedarone_hf(p)
 
 
-def test_class_ic_structural():
-    p = PatientContext(
-        egfr=70,
-        medications=["flecainide"],
-        conditions=["ischemic heart disease"],
-    )
-    tags = evaluate_guideline_violations(p)
-    assert "CLASS_IC_STRUCTURAL_HF" in tags
-
-
-def test_renal_sotalol():
-    p = PatientContext(
-        egfr=22,
-        medications=["sotalol"],
-    )
-    tags = evaluate_guideline_violations(p)
-    assert "SEVERE_RENAL_IMPAIRMENT" in tags
-    assert "RENAL_CONTRAINDICATED_AAD" in tags
-
-
-def test_digoxin_elderly():
-    p = PatientContext(
-        egfr=55,
-        medications=["digoxin"],
-        age=78,
-    )
-    tags = evaluate_guideline_violations(p)
-    assert "DIGOXIN_RENAL_AGE" in tags
-
-
-def test_beta_blocker_requires_aad():
-    p = PatientContext(
-        egfr=90,
-        medications=["metoprolol"],
-    )
-    assert "BETA_BLOCKER_INTERACTION" not in evaluate_guideline_violations(p)
-
-    p2 = PatientContext(
-        egfr=90,
-        medications=["metoprolol", "amiodarone"],
-    )
-    assert "BETA_BLOCKER_INTERACTION" in evaluate_guideline_violations(p2)
+def test_beta_blocker_no_interaction_without_aad():
+    p = _patient(medications=["metoprolol", "diltiazem"])
+    assert not check_beta_blocker_interaction(p)

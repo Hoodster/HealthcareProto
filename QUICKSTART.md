@@ -72,7 +72,7 @@ trafia w błąd 504 — np. `--limit 50 --chunk 8`.
 |---------|-----------|
 | `mimic_died` | Fakt z MIMIC: zgon w szpitalu |
 | `antiarrhythmic_drugs` / `on_antiarrhythmic` | Ekspozycja antyarytmiczna |
-| `guideline_violations` | Proxy reguł (≥2 leki QT, eGFR&lt;30) |
+| `expert_rule_tags` | Tagi wytyczne z odpalonych reguł eksperta (QT, nerki, HF, CYP…) |
 | `expert_safety_concern` | Sygnał systemu eksperckiego (reguły) |
 | `genai_safety_concern` | Sygnał LLM (strukturalny werdykt `SAFETY_VERDICT` per pacjent) |
 | `rag_safety_concern` | Sygnał RAG+LLM+expert (werdykt `SAFETY_VERDICT`) |

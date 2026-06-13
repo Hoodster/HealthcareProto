@@ -10,10 +10,13 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from importlib import import_module
+from typing import Any
+
 from api.db import get_db_session
 from api.models import Staff, User
 
-from jwt import JWT, jwk_from_dict
+jwt: Any = import_module("jwt")
 
 from api.services.patient_service import PatientService
 from models import schemas
@@ -37,17 +40,17 @@ def create_jwt_token(user_id: str):
         "exp": int((now + datetime.timedelta(hours=1000)).timestamp())
     }
     
-    key = jwk_from_dict({"kty": "oct", "k": EXAMPLE_SECRET})
-    return JWT().encode(payload, key, alg="HS256")
+    key = jwt.jwk_from_dict({"kty": "oct", "k": EXAMPLE_SECRET})
+    return jwt.JWT().encode(payload, key, alg="HS256")
 
 def decode_jwt_token(token: str):
     if not token.startswith("Bearer "):
         raise RuntimeError("Invalid authorization header")
     
     token_code = token.split(" ")[1]
-    key = jwk_from_dict({"kty": "oct", "k": EXAMPLE_SECRET})
+    key = jwt.jwk_from_dict({"kty": "oct", "k": EXAMPLE_SECRET})
     try:
-        payload = JWT().decode(token_code, key, algorithms={'HS256'})
+        payload = jwt.JWT().decode(token_code, key, algorithms={'HS256'})
     except Exception as e:
         raise RuntimeError("Invalid token") from e
         

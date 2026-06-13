@@ -23,6 +23,15 @@ def expert_flags(decision: DecisionContext) -> list[str]:
     return [f"{a.rule_name}:{a.severity.value}" for a in decision.alerts]
 
 
+def expert_tags_from_decision(
+    decision: DecisionContext,
+    patient=None,
+) -> list[str]:
+    from expert_system.rule_tags import expert_rule_tags
+
+    return expert_rule_tags(decision, patient)
+
+
 def llm_risk_level(
     response: Optional[str],
     detected_risks: list[str],

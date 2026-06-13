@@ -18,13 +18,13 @@ class PatientContext(BaseModel):
         weight: Patient weight in kg (optional)
     """
 
-    patient_id: Optional[str] = Field(None, description="Patient identifier")
+    patient_id: Optional[str] = None
     egfr: float = Field(..., ge=0, le=200, description="eGFR in mL/min/1.73m²")
     medications: list[str] = Field(default_factory=list, description="Current medications")
     conditions: list[str] = Field(default_factory=list, description="Medical conditions")
-    age: Optional[int] = Field(None, ge=0, le=150, description="Patient age in years")
-    gender: Optional[str] = Field(None, description="Patient gender")
-    weight: Optional[float] = Field(None, ge=0, le=500, description="Patient weight in kg")
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    weight: Optional[float] = None
 
     class Config:
         json_schema_extra = {

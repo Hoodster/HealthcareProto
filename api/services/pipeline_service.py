@@ -19,7 +19,7 @@ from models.schemas.pipeline_schema import (
     ReferenceLabels,
     ApproachMetrics,
 )
-from api.services.risk_levels import expert_risk_level, expert_flags, llm_risk_level
+from api.services.risk_levels import expert_risk_level, expert_flags, expert_tags_from_decision, llm_risk_level
 
 # RAG imports
 from retrieved_augmentation.abstract import Document
@@ -39,9 +39,18 @@ def normalize_approaches(approaches: Optional[list[str]]) -> Optional[list[str]]
 class PipelineService:
     """Service for evaluating MIMIC patients through multiple approaches."""
     
-    def __init__(self):
+    def __init__(
+        self,
+        llm_provider: Optional[str] = None,
+        llm_model: Optional[str] = None,
+    ):
+        import os
+
         self.rule_engine = RuleEngine()
-        self.ai_service = AIModelService()
+        provider = (llm_provider or os.getenv("LLM_PROVIDER", "openai")).lower()
+        model = llm_model or os.getenv("LLM_MODEL")
+        self.llm_provider = provider
+        self.ai_service = AIModelService(ai_provider=provider, model=model)
     
     def evaluate_mimic_patient(
         self,
@@ -73,9 +82,9 @@ class PipelineService:
         # Build patient context from MIMIC
         patient_context = build_mimic_patient_context(subject_id, hadm_id, db)
         
-        # Retrospective reference labels (layers A/B)
+        # Retrospective outcome labels (layer A)
         reference_labels = self._compute_reference_labels(
-            subject_id, hadm_id, patient_context, db
+            subject_id, hadm_id, db
         )
         
         # Initialize result
@@ -93,7 +102,7 @@ class PipelineService:
         if "expert" in approaches:
             result.expert_result = self._approach_expert(patient_context)
             result.metrics["expert"] = self._compute_metrics(
-                result.expert_result, approach="expert"
+                result.expert_result, approach="expert", patient_context=patient_context
             )
         
         if "genai" in approaches:
@@ -115,11 +124,13 @@ class PipelineService:
         start_time = time.time()
         
         decision = self.rule_engine.evaluate(patient_context)
-        
+        from expert_system.rule_tags import expert_rule_tags
+
         latency_ms = (time.time() - start_time) * 1000
         
         return ExpertSystemResult(
             decision=decision,
+            rule_tags=expert_rule_tags(decision, patient_context),
             latency_ms=latency_ms
         )
     
@@ -451,15 +462,10 @@ class PipelineService:
         self,
         subject_id: int,
         hadm_id: int,
-        patient_context: PatientContext,
         db: Session
     ) -> ReferenceLabels:
-        """Layer A (outcome) and B (proxy) — kept separate, no composite is_high_risk."""
+        """Layer A outcome only — expert carries operationalized guidelines."""
         from api.services.mimic_service import get_admission_outcome_features
-
-        from expert_system.guideline_checks import evaluate_guideline_violations
-
-        guideline_violations = evaluate_guideline_violations(patient_context)
 
         admission = db.get(models.MimicAdmission, hadm_id)
         adverse_outcome = False
@@ -474,7 +480,6 @@ class PipelineService:
         )
 
         return ReferenceLabels(
-            guideline_violations=guideline_violations,
             adverse_outcome=adverse_outcome,
             death_during_treatment=death_during_treatment,
             icu_admitted=icu_admitted,
@@ -485,7 +490,8 @@ class PipelineService:
     def _compute_metrics(
         self,
         approach_result,
-        approach: str
+        approach: str,
+        patient_context: Optional[PatientContext] = None,
     ) -> ApproachMetrics:
         """Safety signal for an approach (no F1 / classification metrics)."""
         detected_high_risk = False
@@ -495,7 +501,10 @@ class PipelineService:
         if approach == "expert":
             decision = approach_result.decision
             risk_level = expert_risk_level(decision)
-            risk_flags = expert_flags(decision)
+            tags = approach_result.rule_tags or expert_tags_from_decision(
+                decision, patient_context
+            )
+            risk_flags = tags + expert_flags(decision)
             detected_high_risk = decision.contraindicated or any(
                 a.severity.value in ("critical", "high") for a in decision.alerts
             )

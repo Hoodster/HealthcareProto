@@ -6,12 +6,8 @@ from expert_system.models.decision_context import DecisionContext
 
 
 class ReferenceLabels(BaseModel):
-    """Retrospective reference labels — layers A and B kept separate (no composite gold standard)."""
+    """Retrospective MIMIC outcome labels (layer A) — not a clinical gold standard."""
 
-    guideline_violations: list[str] = Field(
-        default_factory=list,
-        description="Layer B proxy tags from evaluate_guideline_violations() (17 rule families)",
-    )
     adverse_outcome: bool = Field(
         default=False,
         description="Layer A: hospital_expire_flag == 1",
@@ -54,6 +50,10 @@ class ExpertSystemResult(BaseModel):
     """Result from expert system evaluation."""
     
     decision: DecisionContext = Field(description="Expert system decision")
+    rule_tags: list[str] = Field(
+        default_factory=list,
+        description="Guideline tags from fired expert rules",
+    )
     latency_ms: float = Field(description="Evaluation latency in milliseconds")
 
 
@@ -101,7 +101,7 @@ class PipelineComparisonResult(BaseModel):
     
     # Reference labels and per-approach signals
     reference_labels: ReferenceLabels = Field(
-        description="Retrospective MIMIC reference (layers A/B, not a gold standard)",
+        description="Retrospective MIMIC outcome (layer A), not a gold standard",
     )
     metrics: dict[str, ApproachMetrics] = Field(
         default_factory=dict,
