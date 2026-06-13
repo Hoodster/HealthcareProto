@@ -112,6 +112,14 @@ class OutcomeComparisonReport(BaseModel):
         default="See study_example/METHODOLOGY.md — mimic_died is MIMIC fact; "
         "safety_concern is system signal from code-defined rules."
     )
+    llm_provider: Optional[str] = Field(
+        default=None,
+        description="LLM provider used for GenAI/RAG in this batch (openai | claude)",
+    )
+    llm_model: Optional[str] = Field(
+        default=None,
+        description="LLM model id used for GenAI/RAG completion",
+    )
     approaches: list[str]
     outcome_filter: OutcomeFilter
     summary: OutcomeComparisonSummary
@@ -150,6 +158,8 @@ class OutcomeComparisonService:
         approaches: Optional[list[str]] = None,
         outcome_filter: OutcomeFilter = "all",
         antiarrhythmic_only: bool = False,
+        llm_provider: Optional[str] = None,
+        llm_model: Optional[str] = None,
     ) -> OutcomeComparisonReport:
         if approaches is None:
             approaches = ["genai", "rag"]
@@ -158,7 +168,7 @@ class OutcomeComparisonService:
 
         from api.services.mimic_service import get_patient_prescriptions
 
-        pipeline = PipelineService()
+        pipeline = PipelineService(llm_provider=llm_provider, llm_model=llm_model)
         patients_raw = get_heart_patients(db, with_icu_stay=False)
         rows: list[OutcomeComparisonRow] = []
         next_offset: Optional[int] = None
@@ -275,6 +285,8 @@ class OutcomeComparisonService:
 
         summary = OutcomeComparisonService._summarize(rows)
         return OutcomeComparisonReport(
+            llm_provider=pipeline.llm_provider,
+            llm_model=pipeline.llm_model,
             approaches=approaches,
             outcome_filter=outcome_filter,
             summary=summary,

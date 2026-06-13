@@ -59,6 +59,8 @@ def run_via_api(
     outcome: str,
     approaches: list[str],
     antiarrhythmic_only: bool,
+    llm_provider: str | None,
+    llm_model: str | None,
     timeout: int,
 ) -> OutcomeComparisonReport:
     """Fetch the cohort in small pages (offset/next_offset) and merge.
@@ -87,6 +89,10 @@ def run_via_api(
                 ("antiarrhythmic_only", str(antiarrhythmic_only).lower()),
                 *[("approaches", a) for a in approaches],
             ]
+            if llm_provider:
+                params.append(("llm_provider", llm_provider))
+            if llm_model:
+                params.append(("llm_model", llm_model))
             path = f"/hp_proto/api/pipeline/outcome-comparison?{urlencode(params, doseq=True)}"
             resp = client.get(path, headers=headers, timeout=timeout)
             if resp.status_code != 200:
@@ -97,6 +103,8 @@ def run_via_api(
                     "methodology": page.methodology,
                     "approaches": page.approaches,
                     "outcome_filter": page.outcome_filter,
+                    "llm_provider": page.llm_provider,
+                    "llm_model": page.llm_model,
                 }
             rows.extend(page.rows)
             next_offset = page.next_offset
@@ -107,6 +115,8 @@ def run_via_api(
             cursor = next_offset
 
     report = OutcomeComparisonReport(
+        llm_provider=base_meta.get("llm_provider"),
+        llm_model=base_meta.get("llm_model"),
         approaches=base_meta.get("approaches", approaches),
         outcome_filter=base_meta.get("outcome_filter", outcome),  # type: ignore[arg-type]
         summary=OutcomeComparisonService._summarize(rows),
@@ -125,6 +135,8 @@ def run_local(
     outcome: str,
     approaches: list[str],
     antiarrhythmic_only: bool,
+    llm_provider: str | None,
+    llm_model: str | None,
 ) -> OutcomeComparisonReport:
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
@@ -141,6 +153,8 @@ def run_local(
             approaches=approaches,
             outcome_filter=outcome,  # type: ignore[arg-type]
             antiarrhythmic_only=antiarrhythmic_only,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
         )
     finally:
         db.close()
@@ -172,6 +186,13 @@ def main() -> int:
         action="store_true",
         help="Restrict cohort to patients exposed to antiarrhythmic drugs",
     )
+    parser.add_argument(
+        "--llm-provider",
+        choices=["openai", "claude"],
+        default=None,
+        help="GenAI/RAG LLM provider (API query param; default: server env LLM_PROVIDER)",
+    )
+    parser.add_argument("--llm-model", default=None, help="Override LLM model id")
     parser.add_argument("--output", type=Path, default=None, help="CSV path")
     parser.add_argument("--markdown", type=Path, default=None, help="Markdown safety report path")
     parser.add_argument("--json", type=Path, default=None, help="JSON report path")
@@ -187,11 +208,14 @@ def main() -> int:
                 outcome=args.outcome,
                 approaches=args.approaches,
                 antiarrhythmic_only=args.antiarrhythmic_only,
+                llm_provider=args.llm_provider,
+                llm_model=args.llm_model,
             )
         else:
             print(
                 f"API: {args.base_url} (limit={args.limit}, chunk={args.chunk}, "
-                f"offset={args.offset}, outcome={args.outcome})…"
+                f"offset={args.offset}, outcome={args.outcome}, "
+                f"llm={args.llm_provider or 'default'})…"
             )
             report = run_via_api(
                 base_url=args.base_url,
@@ -203,6 +227,8 @@ def main() -> int:
                 outcome=args.outcome,
                 approaches=args.approaches,
                 antiarrhythmic_only=args.antiarrhythmic_only,
+                llm_provider=args.llm_provider,
+                llm_model=args.llm_model,
                 timeout=args.timeout,
             )
 

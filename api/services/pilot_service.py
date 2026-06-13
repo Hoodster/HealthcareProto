@@ -21,7 +21,41 @@ from api.services.risk_levels import (
 )
 from expert_system.rules.interaction_rules import ANTIARRHYTHMIC_DRUGS
 
+from api.services.outcome_comparison_service import OutcomeComparisonRow
+
 OutcomeFilter = Literal["all", "died", "survived"]
+
+# Tags that map to expert risk level 2 when expert_safety_concern is true (API export).
+_EXPERT_CRITICAL_TAGS = frozenset(
+    {
+        "RENAL_CONTRAINDICATED_AAD",
+        "CLASS_IC_STRUCTURAL_HF",
+        "DRONEDARONE_HF",
+        "QT_INTERACTION",
+        "QT_AAD_COMBO",
+        "SEVERE_RENAL_IMPAIRMENT",
+    }
+)
+
+
+def expert_risk_from_api_row(row: OutcomeComparisonRow) -> int:
+    if not row.expert_safety_concern:
+        return 0
+    tags = set(row.expert_rule_tags or [])
+    if tags & _EXPERT_CRITICAL_TAGS:
+        return 2
+    if tags:
+        return 1
+    # Older API without rule_tags: safety_concern implies critical/high alert
+    return 2
+
+
+def llm_risk_from_api_concern(concern: bool | None, risks: list[str]) -> int:
+    if not concern:
+        return 0
+    if any(r in risks for r in ("contraindication", "qt_prolongation")):
+        return 2
+    return 1
 
 PILOT_COLUMNS = [
     "subject_id",
@@ -215,6 +249,67 @@ class PilotService:
             )
 
         return rows, PilotService._summarize(rows)
+
+    @staticmethod
+    def rows_from_outcome_comparison(
+        api_rows: list[OutcomeComparisonRow],
+        *,
+        llm_provider: str = "openai",
+        llm_model: Optional[str] = None,
+    ) -> list[PilotRow]:
+        """Map outcome-comparison API rows to pilot CSV rows (E1–E3 metrics)."""
+        provider = normalize_llm_provider(llm_provider)
+        model = llm_model or DEFAULT_LLM_MODELS[provider]
+        rows: list[PilotRow] = []
+
+        for row in api_rows:
+            outcome = "died" if row.mimic_died else "survived"
+            expert_level = expert_risk_from_api_row(row)
+            llm_level = llm_risk_from_api_concern(row.genai_safety_concern, row.genai_detected_risks)
+            rag_level = llm_risk_from_api_concern(row.rag_safety_concern, row.rag_detected_risks)
+            expert_tag_list = list(row.expert_rule_tags or [])
+            llm_flag_list = list(row.genai_detected_risks)
+            rag_flag_list = list(row.rag_detected_risks)
+            if row.rag_sources:
+                rag_flag_list.append(f"sources:{len(row.rag_sources)}")
+            expert_flag_list = expert_tag_list
+
+            rows.append(
+                PilotRow(
+                    subject_id=row.subject_id,
+                    hadm_id=row.hadm_id,
+                    llm_provider=provider,
+                    llm_model=model,
+                    outcome=outcome,
+                    on_antiarrhythmic=row.on_antiarrhythmic,
+                    icu_admitted=row.icu_admitted,
+                    los_days=row.los_days,
+                    expert_risk=expert_level,
+                    expert_tags="|".join(expert_tag_list),
+                    llm_risk=llm_level,
+                    rag_risk=rag_level,
+                    expert_flags="|".join(expert_flag_list),
+                    llm_flags="|".join(llm_flag_list),
+                    rag_flags="|".join(rag_flag_list),
+                    agreement=three_way_agreement(expert_level, llm_level, rag_level),
+                    comment=auto_comment(
+                        expert=expert_level,
+                        llm=llm_level,
+                        rag=rag_level,
+                        expert_flag_list=expert_flag_list,
+                        llm_flags=llm_flag_list,
+                        rag_flags=rag_flag_list,
+                        rag_sources=row.rag_sources,
+                        outcome=outcome,
+                    ),
+                    genai_excerpt=row.genai_response_excerpt or "",
+                    rag_excerpt=row.rag_response_excerpt or "",
+                    rag_sources="|".join(
+                        f"{s.get('filename', '?')}:{s.get('score', '')}" for s in row.rag_sources
+                    ),
+                )
+            )
+        return rows
 
     @staticmethod
     def _summarize(rows: list[PilotRow]) -> PilotSummary:

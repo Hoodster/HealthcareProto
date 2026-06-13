@@ -7,9 +7,9 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from api.ai_models import ChatGPTAIModel
 from api.auth import HPDbSession
 from api.rag_store import build_rag_query, retrieve_context_with_sources
+from api.services.ai_service import AIModelService
 from api.services.patient_service import PatientService
 import models.schemas as schemas
 from api.models import ChatMessage, User
@@ -24,9 +24,7 @@ class ChatService:
         current_user: Optional[User] = None,
     ) -> schemas.ChatReplyOut:
         if not payload.session_id:
-            stmt = select(ChatMessage.session_id).order_by(ChatMessage.created_at.desc()).limit(1)
-            result = db.execute(stmt).scalar()
-            payload.session_id = result or str(uuid4())
+            payload.session_id = str(uuid4())
 
         current_user_id = current_user.id if current_user else None
 
@@ -68,7 +66,15 @@ class ChatService:
             )
             rag_ctx = rag_ctx or None
 
-        ai_answer = ChatGPTAIModel().answer(
+        try:
+            provider = payload.llm_provider.value if payload.llm_provider else None
+            ai = AIModelService(ai_provider=provider)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+        ai_answer = ai.client.answer(
             payload.content,
             patient_data=patient_ctx,
             history=history,
@@ -85,6 +91,7 @@ class ChatService:
         db.refresh(new_response)
 
         return schemas.ChatReplyOut(
+            session_id=payload.session_id,
             message=schemas.MessageOut.model_validate(new_response),
             mode=payload.mode,
             rag_sources=rag_sources,

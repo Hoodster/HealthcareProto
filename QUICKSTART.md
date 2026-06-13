@@ -58,13 +58,44 @@ python scripts/test_rag.py
 przypadków (każde żądanie kończy się pod limitem bramy ~230 s), więc skalowanie nie
 trafia w błąd 504 — np. `--limit 50 --chunk 8`.
 
+### Pilotaż pracy (E1–E3)
+
+```bash
+# Domyślnie API Azure (bez --local)
+python scripts/run_pilot.py --limit 100 --antiarrhythmic-only \\
+  --llm-provider openai -o artifacts/pilot_100_openai.csv --chunk 3
+
+python scripts/compare_pilot_providers.py \\
+  --openai artifacts/pilot_100_openai.csv \\
+  --claude artifacts/pilot_100_claude.csv \\
+  -o artifacts/pilot_comparison.md
+
+python scripts/select_case_studies.py --input artifacts/pilot_100_openai.csv \\
+  -o artifacts/case_studies.md
+```
+
+`--chunk 3` zalecane przy `--antiarrhythmic-only` (każdy wiersz = GenAI + RAG na serwerze).
+Lokalnie: dodaj `--local` (wymaga `DB_URL` + kluczy API).
+
 ## Swagger (ręcznie)
 
 1. `POST /hp_proto/api/auth/login` → skopiuj `access_token`
 2. **Authorize** → `Bearer <token>`
-3. Batch: `GET /hp_proto/api/pipeline/outcome-comparison?limit=8&offset=0&antiarrhythmic_only=true`
-   — odpowiedź zwraca `next_offset`; podaj go jako `?offset=` po kolejną stronę.
-4. Monitoring per pacjent: `GET /hp_proto/api/pipeline/antiarrhythmic-safety/{subject_id}/{hadm_id}`
+3. Batch: `GET /hp_proto/api/pipeline/outcome-comparison?limit=8&offset=0&antiarrhythmic_only=true&llm_provider=openai`
+   — odpowiedź zwraca `next_offset`, `llm_provider`, `llm_model`; podaj `next_offset` jako `?offset=` po kolejną stronę.
+4. Przełącznik LLM: `GET /hp_proto/api/pipeline/llm-providers` — dostępne providery i domyślne modele.
+5. Monitoring per pacjent: `GET /hp_proto/api/pipeline/antiarrhythmic-safety/{subject_id}/{hadm_id}?llm_provider=claude`
+
+**Chat** — `POST /hp_proto/api/chats/send` body:
+```json
+{
+  "content": "Czy amiodaron + sotalol to ryzyko QT?",
+  "mode": "rag",
+  "llm_provider": "claude",
+  "patient_id": "optional-uuid"
+}
+```
+Odpowiedź zawiera `llm_provider`, `llm_model`, `rag_sources`.
 
 ## Co oznaczają kolumny
 

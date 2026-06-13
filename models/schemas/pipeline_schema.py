@@ -93,6 +93,14 @@ class PipelineComparisonResult(BaseModel):
     
     subject_id: int = Field(description="MIMIC patient subject_id")
     hadm_id: int = Field(description="MIMIC admission hadm_id")
+    llm_provider: Optional[str] = Field(
+        default=None,
+        description="LLM provider used for GenAI/RAG (openai | claude)",
+    )
+    llm_model: Optional[str] = Field(
+        default=None,
+        description="LLM model id used for GenAI/RAG completion",
+    )
     
     # Approach results (optional based on requested approaches)
     expert_result: Optional[ExpertSystemResult] = None
@@ -148,6 +156,14 @@ class AntiarrhythmicSafetyReport(BaseModel):
     """
     subject_id: int
     hadm_id: int
+    llm_provider: Optional[str] = Field(
+        default=None,
+        description="LLM provider used for GenAI/RAG (openai | claude)",
+    )
+    llm_model: Optional[str] = Field(
+        default=None,
+        description="LLM model id used for GenAI/RAG completion",
+    )
     egfr: float
     medications: list[str] = Field(default_factory=list)
     antiarrhythmic_drugs: list[str] = Field(

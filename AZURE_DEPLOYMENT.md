@@ -220,8 +220,10 @@ Managed by Bicep / azd (see `infra/main.bicep`):
 | `DB_URL` | Key Vault reference | PostgreSQL connection string |
 | `API_OPENAI` | azd env / Bicep param | OpenAI API key (embeddings + optional LLM) |
 | `API_CLAUDE` | Key Vault / App Settings | Anthropic API key when `LLM_PROVIDER=claude` |
-| `LLM_PROVIDER` | App Settings | `openai` (default) or `claude` — GenAI/RAG completion only |
-| `LLM_MODEL` | App Settings | e.g. `gpt-4o` or `claude-sonnet-4-20250514` |
+| `LLM_PROVIDER` | App Settings | Domyślny provider gdy brak `?llm_provider=` w żądaniu |
+| `LLM_MODEL` | App Settings | e.g. `gpt-4o` or `claude-sonnet-4-6` |
+
+**Przełącznik per request (Swagger):** `?llm_provider=openai|claude` na endpointach `/pipeline/evaluate-mimic`, `/pipeline/outcome-comparison`, `/pipeline/antiarrhythmic-safety`. Lista providerów: `GET /pipeline/llm-providers`.
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | App Insights | Auto-configured |
 | `WEBSITES_PORT` | `8000` | Container listen port |
 

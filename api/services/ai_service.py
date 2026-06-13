@@ -10,7 +10,7 @@ LLMProviderName = Literal["openai", "claude"]
 
 DEFAULT_LLM_MODELS: dict[LLMProviderName, str] = {
     "openai": "gpt-4o",
-    "claude": "claude-sonnet-4-20250514",
+    "claude": "claude-sonnet-4-6",
 }
 
 

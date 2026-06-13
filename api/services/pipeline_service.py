@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from api.services.mimic_service import build_mimic_patient_context
-from api.services.ai_service import AIModelService
+from api.services.ai_service import normalize_llm_provider
 from api import models
 from expert_system.engine.rule_engine import RuleEngine
 from expert_system.models.patient_context import PatientContext
@@ -47,10 +47,9 @@ class PipelineService:
         import os
 
         self.rule_engine = RuleEngine()
-        provider = (llm_provider or os.getenv("LLM_PROVIDER", "openai")).lower()
-        model = llm_model or os.getenv("LLM_MODEL")
-        self.llm_provider = provider
-        self.ai_service = AIModelService(ai_provider=provider, model=model)
+        self.llm_provider = normalize_llm_provider(llm_provider)
+        self.ai_service = AIModelService(ai_provider=self.llm_provider, model=llm_model)
+        self.llm_model = self.ai_service.model
     
     def evaluate_mimic_patient(
         self,
@@ -91,6 +90,8 @@ class PipelineService:
         result = PipelineComparisonResult(
             subject_id=subject_id,
             hadm_id=hadm_id,
+            llm_provider=self.llm_provider,
+            llm_model=self.llm_model,
             reference_labels=reference_labels,
             raw_patient_context=None
         )
@@ -322,6 +323,8 @@ class PipelineService:
         return AntiarrhythmicSafetyReport(
             subject_id=subject_id,
             hadm_id=hadm_id,
+            llm_provider=self.llm_provider,
+            llm_model=self.llm_model,
             egfr=egfr,
             medications=list(meds),
             antiarrhythmic_drugs=antiarrhythmics,

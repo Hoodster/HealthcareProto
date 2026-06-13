@@ -170,7 +170,7 @@ class ClaudeAIModel(AIModel):
         super().__init__(
             name="Claude",
             description="Anthropic Claude model for conversational AI tasks.",
-            model=model or "claude-sonnet-4-20250514",
+            model=model or "claude-sonnet-4-6",
             prompts=AIModelPrompts(
                 system_prompt=system_prompt or DEFAULT_SYSTEM_PROMPT,
                 question_prompt=question_prompt or DEFAULT_CONVERSATION_PROMPT,

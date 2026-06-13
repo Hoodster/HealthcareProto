@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Iterator
 
 from sqlalchemy import create_engine, text
@@ -28,6 +29,16 @@ def init_db():
     from api.models import APP_SCHEMA_NAME, MIMIC_SCHEMA_NAME
     
     if engine.url.drivername.startswith("sqlite"):
+        db_path = engine.url.database
+        if db_path and db_path != ":memory:":
+            base_dir = Path(db_path).parent
+            base_dir.mkdir(parents=True, exist_ok=True)
+            app_db = (base_dir / "app.sqlite").resolve()
+            mimic_db = (base_dir / "mimiciii.sqlite").resolve()
+            with engine.connect() as conn:
+                conn.execute(text(f"ATTACH DATABASE '{app_db}' AS {APP_SCHEMA_NAME}"))
+                conn.execute(text(f"ATTACH DATABASE '{mimic_db}' AS {MIMIC_SCHEMA_NAME}"))
+                conn.commit()
         Base.metadata.create_all(bind=engine)
         return
     

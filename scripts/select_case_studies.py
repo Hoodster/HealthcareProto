@@ -136,7 +136,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Select case studies from pilot CSV")
     parser.add_argument("--input", type=Path, default=Path("artifacts/pilot_100_openai.csv"))
     parser.add_argument("--claude-input", type=Path, default=None, help="Second CSV for OpenAI vs Claude cases")
-    parser.add_argument("--output", type=Path, default=Path("artifacts/case_studies.md"))
+    parser.add_argument("-o", "--output", type=Path, default=Path("artifacts/case_studies.md"))
     parser.add_argument("--max-cases", type=int, default=10)
     args = parser.parse_args()
 
