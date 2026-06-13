@@ -41,12 +41,24 @@ def list_chats(user: User = Depends(get_current_user), db: Session = Depends(get
 
 
 @router.get("/{chat_id}", response_model=schemas.ChatInterface)
-def get_chat(chat_id: str, db: Session = Depends(get_db_session)):
+def get_chat(
+    chat_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db_session),
+):
     """Get all messages for a specific chat session."""
-    messages = ChatService.get_chat(db=db, chat_id=chat_id)
+    messages = ChatService.get_chat(db=db, chat_id=chat_id, user_id=user.id)
     if not messages:
         raise HTTPException(status_code=404, detail="Chat session not found")
     return schemas.ChatInterface(
         session_id=chat_id,
-        messages=[schemas.MessageOut.model_validate(msg) for msg in messages],
+        messages=[
+            schemas.MessageOut(
+                sender_role=msg.sender_role,
+                content=msg.content,
+                created_at=msg.created_at,
+                session_id=msg.session_id,
+            )
+            for msg in messages
+        ],
     )

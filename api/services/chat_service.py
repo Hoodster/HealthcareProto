@@ -23,16 +23,27 @@ class ChatService:
         payload: schemas.MessageIn,
         current_user: Optional[User] = None,
     ) -> schemas.ChatReplyOut:
+        current_user_id = current_user.id if current_user else None
+
         if not payload.session_id:
             payload.session_id = str(uuid4())
-
-        current_user_id = current_user.id if current_user else None
+        elif current_user_id:
+            owner_stmt = (
+                select(ChatMessage.user_id)
+                .where(ChatMessage.session_id == payload.session_id)
+                .limit(1)
+            )
+            owner_id = db.execute(owner_stmt).scalar()
+            if owner_id is not None and owner_id != current_user_id:
+                raise HTTPException(status_code=403, detail="Not authorized for this chat session")
 
         history_stmt = (
             select(ChatMessage)
             .where(ChatMessage.session_id == payload.session_id)
             .order_by(ChatMessage.created_at.asc())
         )
+        if current_user_id:
+            history_stmt = history_stmt.where(ChatMessage.user_id == current_user_id)
         prior_messages = db.execute(history_stmt).scalars().all()
         history = [
             {"role": msg.sender_role, "content": msg.content}
@@ -92,7 +103,12 @@ class ChatService:
 
         return schemas.ChatReplyOut(
             session_id=payload.session_id,
-            message=schemas.MessageOut.model_validate(new_response),
+            message=schemas.MessageOut(
+                sender_role=new_response.sender_role,
+                content=new_response.content,
+                created_at=new_response.created_at,
+                session_id=payload.session_id,
+            ),
             mode=payload.mode,
             rag_sources=rag_sources,
         )
@@ -110,8 +126,11 @@ class ChatService:
         return [schemas.UserChatItemOut(session_id=row[0], latest_message_at=row[1]) for row in results]
 
     @staticmethod
-    def get_chat(db: Session, chat_id: str) -> list[ChatMessage]:
-        stmt = select(ChatMessage).where(ChatMessage.session_id == chat_id).order_by(ChatMessage.created_at.asc())
+    def get_chat(db: Session, chat_id: str, user_id: str | None = None) -> list[ChatMessage]:
+        stmt = select(ChatMessage).where(ChatMessage.session_id == chat_id)
+        if user_id:
+            stmt = stmt.where(ChatMessage.user_id == user_id)
+        stmt = stmt.order_by(ChatMessage.created_at.asc())
         chats = list(db.execute(stmt).scalars().all())
         if not chats:
             raise HTTPException(status_code=404, detail="Chat not found")

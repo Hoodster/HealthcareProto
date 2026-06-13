@@ -37,12 +37,12 @@ class MessageIn(BaseModel):
                     "content": "Czy amiodaron z sotalolem to ryzyko QT?",
                     "mode": "rag",
                     "llm_provider": "claude",
+                    "session_id": "550e8400-e29b-41d4-a716-446655440000",
                 },
                 {
                     "content": "Podsumuj ryzyko leków pacjenta",
                     "mode": "llm",
                     "llm_provider": "openai",
-                    "session_id": "550e8400-e29b-41d4-a716-446655440000",
                 },
             ]
         }
