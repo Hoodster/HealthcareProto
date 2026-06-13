@@ -16,9 +16,10 @@ from models.schemas.pipeline_schema import (
     ExpertSystemResult,
     GenAIResult,
     RAGFullResult,
-    GroundTruth,
+    ReferenceLabels,
     ApproachMetrics,
 )
+from api.services.risk_levels import expert_risk_level, expert_flags, llm_risk_level
 
 # RAG imports
 from retrieved_augmentation.abstract import Document
@@ -72,14 +73,16 @@ class PipelineService:
         # Build patient context from MIMIC
         patient_context = build_mimic_patient_context(subject_id, hadm_id, db)
         
-        # Compute ground truth
-        ground_truth = self._compute_ground_truth(subject_id, hadm_id, patient_context, db)
+        # Retrospective reference labels (layers A/B)
+        reference_labels = self._compute_reference_labels(
+            subject_id, hadm_id, patient_context, db
+        )
         
         # Initialize result
         result = PipelineComparisonResult(
             subject_id=subject_id,
             hadm_id=hadm_id,
-            ground_truth=ground_truth,
+            reference_labels=reference_labels,
             raw_patient_context=None
         )
         
@@ -90,19 +93,19 @@ class PipelineService:
         if "expert" in approaches:
             result.expert_result = self._approach_expert(patient_context)
             result.metrics["expert"] = self._compute_metrics(
-                result.expert_result, ground_truth, approach="expert"
+                result.expert_result, approach="expert"
             )
         
         if "genai" in approaches:
             result.genai_result = self._approach_genai(patient_context)
             result.metrics["genai"] = self._compute_metrics(
-                result.genai_result, ground_truth, approach="genai"
+                result.genai_result, approach="genai"
             )
         
         if "rag" in approaches:
             result.rag_result = self._approach_rag(patient_context)
             result.metrics["rag"] = self._compute_metrics(
-                result.rag_result, ground_truth, approach="rag"
+                result.rag_result, approach="rag"
             )
         
         return result
@@ -322,7 +325,7 @@ class PipelineService:
             genai=genai_view,
             rag=rag_view,
             approaches_agree=agree,
-            mimic_died=bool(result.ground_truth.adverse_outcome),
+            mimic_died=bool(result.reference_labels.adverse_outcome),
             recommendation=recommendation,
         )
 
@@ -444,117 +447,95 @@ class PipelineService:
         
         return detected
     
-    def _compute_ground_truth(
+    def _compute_reference_labels(
         self,
         subject_id: int,
         hadm_id: int,
         patient_context: PatientContext,
         db: Session
-    ) -> GroundTruth:
-        """Compute ground truth using A+B combined approach."""
-        guideline_violations = []
-        
-        # Warstwa 1: Guideline Proxy
-        
-        # Rule 1: ≥2 QT-prolonging drugs
-        patient_drugs = {drug.lower().strip() for drug in patient_context.medications}
-        qt_drugs = patient_drugs & QT_PROLONGING_DRUGS
-        if len(qt_drugs) >= 2:
-            guideline_violations.append("QT_INTERACTION")
-        
-        # Rule 2: Severe renal impairment
-        if patient_context.egfr < 30:
-            guideline_violations.append("SEVERE_RENAL_IMPAIRMENT")
-        
-        # Warstwa 2: Actual Outcome
+    ) -> ReferenceLabels:
+        """Layer A (outcome) and B (proxy) — kept separate, no composite is_high_risk."""
+        from api.services.mimic_service import get_admission_outcome_features
+
+        from expert_system.guideline_checks import evaluate_guideline_violations
+
+        guideline_violations = evaluate_guideline_violations(patient_context)
+
         admission = db.get(models.MimicAdmission, hadm_id)
-        
         adverse_outcome = False
         death_during_treatment = False
-        
         if admission:
             adverse_outcome = bool(admission.hospital_expire_flag == 1)
-            
-            # Check if death occurred during treatment (if prescriptions exist)
             if adverse_outcome and admission.deathtime:
-                # Simple heuristic: death during admission = death during treatment
                 death_during_treatment = True
-        
-        # Combined: high_risk if guideline violated OR adverse outcome
-        is_high_risk = bool(guideline_violations) or adverse_outcome
-        
-        return GroundTruth(
-            is_high_risk=is_high_risk,
+
+        icu_admitted, los_days, discharge_location = get_admission_outcome_features(
+            subject_id, hadm_id, db
+        )
+
+        return ReferenceLabels(
             guideline_violations=guideline_violations,
             adverse_outcome=adverse_outcome,
-            death_during_treatment=death_during_treatment
+            death_during_treatment=death_during_treatment,
+            icu_admitted=icu_admitted,
+            los_days=los_days,
+            discharge_location=discharge_location,
         )
     
     def _compute_metrics(
         self,
         approach_result,
-        ground_truth: GroundTruth,
         approach: str
     ) -> ApproachMetrics:
-        """Compute metrics for an approach."""
-        # Determine if approach detected high risk
+        """Safety signal for an approach (no F1 / classification metrics)."""
         detected_high_risk = False
+        risk_level = 0
+        risk_flags: list[str] = []
         
         if approach == "expert":
-            # Expert: contraindicated OR high/critical alerts
             decision = approach_result.decision
+            risk_level = expert_risk_level(decision)
+            risk_flags = expert_flags(decision)
             detected_high_risk = decision.contraindicated or any(
-                alert.severity.value in ["critical", "high"] for alert in decision.alerts
+                a.severity.value in ("critical", "high") for a in decision.alerts
             )
         
         elif approach == "genai":
-            # GenAI: structured per-patient verdict (fallback to keywords if absent)
             verdict = self._extract_safety_verdict(approach_result.response)
+            risk_level = llm_risk_level(
+                approach_result.response,
+                approach_result.detected_risks,
+                extract_verdict=self._extract_safety_verdict,
+            )
+            risk_flags = list(approach_result.detected_risks)
             if verdict is None:
-                verdict = any(
-                    risk in approach_result.detected_risks
-                    for risk in ["qt_prolongation", "contraindication", "drug_interaction"]
+                detected_high_risk = any(
+                    r in approach_result.detected_risks
+                    for r in ("qt_prolongation", "contraindication", "drug_interaction")
                 )
-            detected_high_risk = verdict
+            else:
+                detected_high_risk = verdict
 
         elif approach == "rag":
-            # RAG: LLM verdict informed by retrieved guidelines + expert alerts in prompt
-            # (NOT a raw echo of expert alerts — keeps RAG independent from expert).
             verdict = self._extract_safety_verdict(approach_result.response)
+            risk_level = llm_risk_level(
+                approach_result.response,
+                approach_result.detected_risks,
+                extract_verdict=self._extract_safety_verdict,
+            )
+            risk_flags = list(approach_result.detected_risks)
+            if approach_result.rag_sources:
+                risk_flags.append(f"rag_sources:{len(approach_result.rag_sources)}")
             if verdict is None:
-                verdict = bool(approach_result.expert_alerts) or any(
-                    risk in approach_result.detected_risks
-                    for risk in ["qt_prolongation", "contraindication", "drug_interaction"]
+                detected_high_risk = any(
+                    r in approach_result.detected_risks
+                    for r in ("qt_prolongation", "contraindication", "drug_interaction")
                 )
-            detected_high_risk = verdict
-        
-        # Confusion matrix
-        true_positive = detected_high_risk and ground_truth.is_high_risk
-        false_positive = detected_high_risk and not ground_truth.is_high_risk
-        true_negative = not detected_high_risk and not ground_truth.is_high_risk
-        false_negative = not detected_high_risk and ground_truth.is_high_risk
-        
-        # Calculate metrics
-        recall = None
-        precision = None
-        f1 = None
-        
-        if ground_truth.is_high_risk:  # For recall, we need positive cases
-            recall = 1.0 if true_positive else 0.0
-        
-        if detected_high_risk:  # For precision, we need detections
-            precision = 1.0 if true_positive else 0.0
-        
-        if recall is not None and precision is not None and (recall + precision) > 0:
-            f1 = 2 * (precision * recall) / (precision + recall)
+            else:
+                detected_high_risk = verdict
         
         return ApproachMetrics(
             detected_high_risk=detected_high_risk,
-            true_positive=true_positive if true_positive else None,
-            false_positive=false_positive if false_positive else None,
-            true_negative=true_negative if true_negative else None,
-            false_negative=false_negative if false_negative else None,
-            recall=recall,
-            precision=precision,
-            f1=f1
+            risk_level=risk_level,
+            risk_flags=risk_flags,
         )

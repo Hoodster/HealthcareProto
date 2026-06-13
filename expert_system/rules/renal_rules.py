@@ -21,7 +21,9 @@ class SevereRenalImpairmentRule(BaseRule):
         self.threshold = 30  # mL/min/1.73m²
 
     def condition(self, patient: PatientContext) -> bool:
-        return patient.egfr < self.threshold
+        from expert_system.guideline_checks import check_severe_renal
+
+        return check_severe_renal(patient)
 
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         decision.add_alert(
@@ -69,7 +71,9 @@ class ModerateRenalImpairmentRule(BaseRule):
         self.upper_threshold = 60  # mL/min/1.73m²
 
     def condition(self, patient: PatientContext) -> bool:
-        return self.lower_threshold <= patient.egfr < self.upper_threshold
+        from expert_system.guideline_checks import check_moderate_renal
+
+        return check_moderate_renal(patient)
 
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         decision.add_alert(
@@ -116,7 +120,9 @@ class MildRenalImpairmentRule(BaseRule):
         self.upper_threshold = 90  # mL/min/1.73m²
 
     def condition(self, patient: PatientContext) -> bool:
-        return self.lower_threshold <= patient.egfr < self.upper_threshold
+        from expert_system.guideline_checks import check_mild_renal
+
+        return check_mild_renal(patient)
 
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         decision.add_alert(

@@ -1,14 +1,14 @@
 """
 RAG knowledge store — guidelines + per-patient document chunks.
 
-Guidelines load from artifacts/rag_knowledge.json at startup.
-Patient documents are indexed from app.med_documents (sync on startup + on upload).
+Backend: RAG_BACKEND=memory (default) | azure_search
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Any, Optional
@@ -26,8 +26,22 @@ _embedder = None  # OpenAIEmbedder | None
 _patient_docs_indexed: set[int] = set()
 
 
+def _use_azure_search() -> bool:
+    return os.getenv("RAG_BACKEND", "memory").lower() == "azure_search"
+
+
+def _azure():
+    from api import rag_search_store
+
+    return rag_search_store
+
+
 def init_rag_store(json_path: Optional[Path] = None) -> None:
-    """Load guideline chunks into the in-memory vector store."""
+    """Load guideline chunks into the active RAG backend."""
+    if _use_azure_search():
+        _azure().init_rag_store(json_path)
+        return
+
     global _store, _embedder
 
     if _store is not None:
@@ -76,6 +90,9 @@ def init_rag_store(json_path: Optional[Path] = None) -> None:
 
 def sync_patient_documents(db: Session) -> dict[str, int]:
     """Index all patient_docfile rows from the database into the RAG store."""
+    if _use_azure_search():
+        return _azure().sync_patient_documents(db)
+
     from api.models import MedDocument
 
     if _store is None or _embedder is None:
@@ -111,6 +128,11 @@ def index_patient_document(
     filename: str,
 ) -> int:
     """Chunk, embed, and index a patient document. Returns number of chunks indexed."""
+    if _use_azure_search():
+        return _azure().index_patient_document(
+            text, patient_id=patient_id, med_doc_id=med_doc_id, filename=filename
+        )
+
     global _patient_docs_indexed
 
     if _store is None or _embedder is None:
@@ -172,6 +194,9 @@ def index_patient_document(
 
 
 def remove_patient_document(med_doc_id: int, patient_id: str) -> None:
+    if _use_azure_search():
+        _azure().remove_patient_document(med_doc_id, patient_id)
+        return
     if _store is None:
         return
     doc_uuid = f"patient_{patient_id}_doc_{med_doc_id}"
@@ -254,6 +279,11 @@ def retrieve_context_with_sources(
     sources actually used (filename, doc_type, score). Proves the RAG layer
     processed real documents.
     """
+    if _use_azure_search():
+        return _azure().retrieve_context_with_sources(
+            query, top_k, patient_id=patient_id, min_score=min_score
+        )
+
     if _store is None or _embedder is None:
         return "", []
 
@@ -321,6 +351,11 @@ def retrieve_context(
 
     Splits budget between clinical guidelines and patient-specific documents.
     """
+    if _use_azure_search():
+        return _azure().retrieve_context(
+            query, top_k, patient_id=patient_id, min_score=min_score
+        )
+
     text, _ = retrieve_context_with_sources(
         query, top_k, patient_id=patient_id, min_score=min_score
     )
@@ -328,9 +363,16 @@ def retrieve_context(
 
 
 def get_rag_status() -> dict[str, Any]:
+    if _use_azure_search():
+        status = _azure().get_rag_status()
+        status["knowledge_file"] = str(_DEFAULT_JSON)
+        status["knowledge_file_exists"] = _DEFAULT_JSON.exists()
+        return status
+
     path = _DEFAULT_JSON
     status: dict[str, Any] = {
         "enabled": _store is not None and _embedder is not None,
+        "backend": "memory",
         "knowledge_file": str(path),
         "knowledge_file_exists": path.exists(),
         "patient_documents_indexed": len(_patient_docs_indexed),

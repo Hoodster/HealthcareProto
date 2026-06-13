@@ -5,37 +5,49 @@ from pydantic import BaseModel, Field
 from expert_system.models.decision_context import DecisionContext
 
 
-class GroundTruth(BaseModel):
-    """Ground truth for evaluation (A+B combined approach)."""
-    
-    is_high_risk: bool = Field(description="Overall risk classification")
+class ReferenceLabels(BaseModel):
+    """Retrospective reference labels — layers A and B kept separate (no composite gold standard)."""
+
     guideline_violations: list[str] = Field(
         default_factory=list,
-        description="List of violated clinical guidelines"
+        description="Layer B proxy tags from evaluate_guideline_violations() (17 rule families)",
     )
     adverse_outcome: bool = Field(
         default=False,
-        description="Whether adverse outcome occurred (hospital_expire_flag=1)"
+        description="Layer A: hospital_expire_flag == 1",
     )
     death_during_treatment: bool = Field(
         default=False,
-        description="Whether death occurred during prescription period"
+        description="Death during admission (retrospective)",
+    )
+    icu_admitted: bool = Field(
+        default=False,
+        description="Layer A: ICU stay during this admission",
+    )
+    los_days: Optional[float] = Field(
+        default=None,
+        description="Layer A: length of stay in days",
+    )
+    discharge_location: Optional[str] = Field(
+        default=None,
+        description="Layer A: discharge disposition from MIMIC",
     )
 
 
 class ApproachMetrics(BaseModel):
-    """Metrics for a single approach."""
-    
-    detected_high_risk: bool = Field(description="Whether approach detected high risk")
-    true_positive: Optional[bool] = Field(None, description="Correct high risk detection")
-    false_positive: Optional[bool] = Field(None, description="Incorrect alarm")
-    true_negative: Optional[bool] = Field(None, description="Correct safe classification")
-    false_negative: Optional[bool] = Field(None, description="Missed high risk")
-    
-    # Summary metrics
-    recall: Optional[float] = Field(None, ge=0, le=1, description="Recall/sensitivity")
-    precision: Optional[float] = Field(None, ge=0, le=1, description="Precision")
-    f1: Optional[float] = Field(None, ge=0, le=1, description="F1 score")
+    """Per-approach safety signal (no classification metrics vs a gold label)."""
+
+    detected_high_risk: bool = Field(description="Whether approach flagged high safety concern")
+    risk_level: int = Field(
+        default=0,
+        ge=0,
+        le=2,
+        description="0=safe, 1=warning, 2=unsafe",
+    )
+    risk_flags: list[str] = Field(
+        default_factory=list,
+        description="Triggered rules or detected risk categories",
+    )
 
 
 class ExpertSystemResult(BaseModel):
@@ -87,11 +99,13 @@ class PipelineComparisonResult(BaseModel):
     genai_result: Optional[GenAIResult] = None
     rag_result: Optional[RAGFullResult] = None
     
-    # Ground truth and metrics
-    ground_truth: GroundTruth = Field(description="Ground truth for this patient")
+    # Reference labels and per-approach signals
+    reference_labels: ReferenceLabels = Field(
+        description="Retrospective MIMIC reference (layers A/B, not a gold standard)",
+    )
     metrics: dict[str, ApproachMetrics] = Field(
         default_factory=dict,
-        description="Metrics per approach (expert/genai/rag)"
+        description="Safety signals per approach (expert/genai/rag)",
     )
     
     # Optional raw data

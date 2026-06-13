@@ -45,6 +45,35 @@ BETA_BLOCKERS = {
 }
 
 
+# CYP3A4/P-gp inducers — reduce antiarrhythmic / DOAC levels
+CYP_INDUCERS = {
+    "rifampin", "rifampicin", "carbamazepine", "phenobarbital", "phenytoin",
+    "st john's wort", "st johns wort",
+}
+
+
+# Antiplatelet agents — bleeding / QT combo proxy
+ANTIPLATELET_DRUGS = {
+    "aspirin", "clopidogrel", "prasugrel", "ticagrelor", "dipyridamole",
+}
+
+
+# Rate-control agents (not in ANTIARRHYTHMIC_DRUGS cohort filter)
+RATE_CONTROL_DRUGS = {"digoxin", "diltiazem", "verapamil"}
+
+
+# Class IC sodium-channel blockers
+CLASS_IC_DRUGS = {"flecainide", "propafenone"}
+
+
+# Non-dihydropyridine calcium channel blockers
+NON_DHP_CCB = {"diltiazem", "verapamil"}
+
+
+# Antiarrhythmics with bradycardia / AV block risk
+BRADYCARDIA_RISK_AAD = {"amiodarone", "sotalol", "dronedarone"}
+
+
 # Antiarrhythmic drugs by Vaughan-Williams class — core domain of this platform.
 # Class IA/IB/IC (Na-channel blockers) and Class III (K-channel blockers).
 ANTIARRHYTHMIC_DRUGS = {
@@ -65,6 +94,9 @@ RENALLY_CLEARED_ANTIARRHYTHMICS = {
     "sotalol", "dofetilide", "procainamide", "disopyramide",
 }
 
+# QT-prolonging antiarrhythmics subset
+QT_AAD_DRUGS = ANTIARRHYTHMIC_DRUGS & QT_PROLONGING_DRUGS
+
 
 class QTProlongingDrugInteractionRule(BaseRule):
     """
@@ -81,9 +113,9 @@ class QTProlongingDrugInteractionRule(BaseRule):
         self.category = "interaction"
 
     def condition(self, patient: PatientContext) -> bool:
-        """Check if patient takes any QT-prolonging drugs."""
-        patient_drugs = {drug.lower().strip() for drug in patient.medications}
-        return bool(patient_drugs & QT_PROLONGING_DRUGS)
+        from expert_system.guideline_checks import check_qt_rule_fires
+
+        return check_qt_rule_fires(patient)
 
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         patient_drugs = {drug.lower().strip() for drug in patient.medications}
@@ -128,8 +160,9 @@ class CYPInhibitorInteractionRule(BaseRule):
         self.category = "interaction"
 
     def condition(self, patient: PatientContext) -> bool:
-        patient_drugs = {drug.lower().strip() for drug in patient.medications}
-        return bool(patient_drugs & CYP_INHIBITORS)
+        from expert_system.guideline_checks import check_cyp_inhibitor
+
+        return check_cyp_inhibitor(patient)
 
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         patient_drugs = {drug.lower().strip() for drug in patient.medications}
@@ -181,8 +214,9 @@ class BetaBlockerInteractionRule(BaseRule):
         self.category = "interaction"
 
     def condition(self, patient: PatientContext) -> bool:
-        patient_drugs = {drug.lower().strip() for drug in patient.medications}
-        return bool(patient_drugs & BETA_BLOCKERS)
+        from expert_system.guideline_checks import check_beta_blocker_interaction
+
+        return check_beta_blocker_interaction(patient)
 
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         patient_drugs = {drug.lower().strip() for drug in patient.medications}
@@ -237,7 +271,9 @@ class DatabaseDrugInteractionRule(BaseRule):
             return []
 
     def condition(self, patient: PatientContext) -> bool:
-        return bool(self._get_interactions(patient))
+        from expert_system.guideline_checks import check_drugbank_interaction
+
+        return check_drugbank_interaction(patient)
 
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         interactions = self._get_interactions(patient)
@@ -286,7 +322,9 @@ class RenalContraindicatedAntiarrhythmicRule(BaseRule):
         return patient_drugs & RENALLY_CLEARED_ANTIARRHYTHMICS
 
     def condition(self, patient: PatientContext) -> bool:
-        return patient.egfr < self.SEVERE_EGFR and bool(self._affected(patient))
+        from expert_system.guideline_checks import check_renal_contraindicated_aad
+
+        return check_renal_contraindicated_aad(patient)
 
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         affected = self._affected(patient)
@@ -335,4 +373,97 @@ class RenalContraindicatedAntiarrhythmicRule(BaseRule):
             f"accumulate in severe renal impairment. Sotalol and dofetilide are contraindicated "
             f"due to dose-dependent QT prolongation and torsade de pointes; procainamide and "
             f"disopyramide require strict dose reduction and ECG monitoring."
+        )
+
+
+class CYPInducerInteractionRule(BaseRule):
+    """CYP3A4/P-gp inducers may reduce antiarrhythmic drug levels."""
+
+    def __init__(self):
+        super().__init__()
+        self.category = "interaction"
+
+    def condition(self, patient: PatientContext) -> bool:
+        from expert_system.guideline_checks import check_cyp_inducer
+
+        return check_cyp_inducer(patient)
+
+    def action(self, patient: PatientContext, decision: DecisionContext) -> None:
+        patient_drugs = {drug.lower().strip() for drug in patient.medications}
+        inducers = list(patient_drugs & CYP_INDUCERS)
+        decision.add_alert(
+            message=f"CYP inducer interaction: {', '.join(inducers)}",
+            severity=AlertSeverity.MODERATE,
+            rule_name=self.name,
+            category=self.category,
+        )
+
+    def explanation(self, patient: PatientContext) -> str:
+        patient_drugs = {drug.lower().strip() for drug in patient.medications}
+        inducers = list(patient_drugs & CYP_INDUCERS)
+        return (
+            f"Patient takes CYP inducers ({', '.join(inducers)}) which may reduce "
+            "levels of CYP-metabolized antiarrhythmics — monitor efficacy."
+        )
+
+
+class AntiplateletQtRiskRule(BaseRule):
+    """Antiplatelet + QT-prolonging drug — bleeding and arrhythmia risk proxy."""
+
+    def __init__(self):
+        super().__init__()
+        self.category = "interaction"
+
+    def condition(self, patient: PatientContext) -> bool:
+        from expert_system.guideline_checks import check_antiplatelet_qt_risk
+
+        return check_antiplatelet_qt_risk(patient)
+
+    def action(self, patient: PatientContext, decision: DecisionContext) -> None:
+        patient_drugs = {drug.lower().strip() for drug in patient.medications}
+        antiplatelets = list(patient_drugs & ANTIPLATELET_DRUGS)
+        decision.add_alert(
+            message=(
+                f"Antiplatelet ({', '.join(antiplatelets)}) with QT-prolonging therapy — "
+                "elevated bleeding and arrhythmia monitoring needed"
+            ),
+            severity=AlertSeverity.MODERATE,
+            rule_name=self.name,
+            category=self.category,
+        )
+
+    def explanation(self, patient: PatientContext) -> str:
+        return (
+            "Combined antiplatelet and QT-prolonging therapy increases bleeding risk "
+            "and requires ECG monitoring per AF/chronic coronary disease guidelines."
+        )
+
+
+class AmiodaroneMonitoringRule(BaseRule):
+    """Educational flag: amiodarone requires multi-organ monitoring."""
+
+    def __init__(self):
+        super().__init__()
+        self.category = "interaction"
+
+    def condition(self, patient: PatientContext) -> bool:
+        from expert_system.guideline_checks import check_amiodarone_monitoring
+
+        return check_amiodarone_monitoring(patient)
+
+    def action(self, patient: PatientContext, decision: DecisionContext) -> None:
+        decision.add_alert(
+            message=(
+                "Amiodarone — schedule thyroid, liver, pulmonary, and ocular monitoring; "
+                "review drug interactions"
+            ),
+            severity=AlertSeverity.MODERATE,
+            rule_name=self.name,
+            category=self.category,
+        )
+
+    def explanation(self, patient: PatientContext) -> str:
+        return (
+            "Amiodarone requires periodic monitoring of thyroid, liver, pulmonary, "
+            "and ocular function due to organ toxicity and extensive drug interactions."
         )

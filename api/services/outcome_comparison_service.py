@@ -29,6 +29,15 @@ class OutcomeComparisonRow(BaseModel):
         default=False,
         description="Whether the patient was exposed to any antiarrhythmic drug",
     )
+    icu_admitted: bool = Field(
+        default=False,
+        description="ICU stay during this admission (MIMIC icustays)",
+    )
+    los_days: Optional[float] = Field(
+        default=None,
+        description="Length of stay in days (dischtime - admittime)",
+    )
+    discharge_location: Optional[str] = None
     egfr: float
     guideline_violations: list[str] = Field(
         description="Proxy rules only — NOT clinical ground truth"
@@ -63,7 +72,19 @@ class OutcomeComparisonSummary(BaseModel):
     died_count: int
     survived_count: int
     on_antiarrhythmic_count: int = 0
-    # (2) Descriptive association with death — concern rate within each outcome group
+    icu_admitted_count: int = 0
+    # Stratified: antiarrhythmic × outcome
+    expert_concern_among_antiarrhythmic_died_pct: Optional[float] = None
+    genai_concern_among_antiarrhythmic_died_pct: Optional[float] = None
+    rag_concern_among_antiarrhythmic_died_pct: Optional[float] = None
+    expert_concern_among_antiarrhythmic_survived_pct: Optional[float] = None
+    genai_concern_among_antiarrhythmic_survived_pct: Optional[float] = None
+    rag_concern_among_antiarrhythmic_survived_pct: Optional[float] = None
+    # Stratified: ICU
+    expert_concern_among_icu_pct: Optional[float] = None
+    genai_concern_among_icu_pct: Optional[float] = None
+    rag_concern_among_icu_pct: Optional[float] = None
+    # Descriptive association with death — concern rate within each outcome group
     expert_concern_among_died_pct: Optional[float] = None
     genai_concern_among_died_pct: Optional[float] = None
     rag_concern_among_died_pct: Optional[float] = None
@@ -178,8 +199,8 @@ class OutcomeComparisonService:
             except Exception:
                 continue
 
-            gt = result.ground_truth
-            mimic_died = bool(gt.adverse_outcome)
+            ref = result.reference_labels
+            mimic_died = bool(ref.adverse_outcome)
 
             if outcome_filter == "died" and not mimic_died:
                 continue
@@ -229,8 +250,11 @@ class OutcomeComparisonService:
                     qt_drug_count=qt_count,
                     antiarrhythmic_drugs=antiarrhythmics,
                     on_antiarrhythmic=bool(antiarrhythmics),
+                    icu_admitted=ref.icu_admitted,
+                    los_days=ref.los_days,
+                    discharge_location=ref.discharge_location,
                     egfr=float(ctx.get("egfr", 90)),
-                    guideline_violations=list(gt.guideline_violations),
+                    guideline_violations=list(ref.guideline_violations),
                     genai_safety_concern=genai_concern,
                     rag_safety_concern=rag_concern,
                     genai_detected_risks=genai_risks,
@@ -257,6 +281,9 @@ class OutcomeComparisonService:
     def _summarize(rows: list[OutcomeComparisonRow]) -> OutcomeComparisonSummary:
         died = [r for r in rows if r.mimic_died]
         survived = [r for r in rows if not r.mimic_died]
+        icu = [r for r in rows if r.icu_admitted]
+        aa_died = [r for r in rows if r.on_antiarrhythmic and r.mimic_died]
+        aa_survived = [r for r in rows if r.on_antiarrhythmic and not r.mimic_died]
 
         def _pct(concern_rows: list[OutcomeComparisonRow], attr: str) -> Optional[float]:
             vals = [getattr(r, attr) for r in concern_rows if getattr(r, attr) is not None]
@@ -301,6 +328,16 @@ class OutcomeComparisonService:
             died_count=len(died),
             survived_count=len(survived),
             on_antiarrhythmic_count=sum(1 for r in rows if r.on_antiarrhythmic),
+            icu_admitted_count=len(icu),
+            expert_concern_among_antiarrhythmic_died_pct=_pct(aa_died, "expert_safety_concern"),
+            genai_concern_among_antiarrhythmic_died_pct=_pct(aa_died, "genai_safety_concern"),
+            rag_concern_among_antiarrhythmic_died_pct=_pct(aa_died, "rag_safety_concern"),
+            expert_concern_among_antiarrhythmic_survived_pct=_pct(aa_survived, "expert_safety_concern"),
+            genai_concern_among_antiarrhythmic_survived_pct=_pct(aa_survived, "genai_safety_concern"),
+            rag_concern_among_antiarrhythmic_survived_pct=_pct(aa_survived, "rag_safety_concern"),
+            expert_concern_among_icu_pct=_pct(icu, "expert_safety_concern"),
+            genai_concern_among_icu_pct=_pct(icu, "genai_safety_concern"),
+            rag_concern_among_icu_pct=_pct(icu, "rag_safety_concern"),
             expert_concern_among_died_pct=_pct(died, "expert_safety_concern"),
             genai_concern_among_died_pct=_pct(died, "genai_safety_concern"),
             rag_concern_among_died_pct=_pct(died, "rag_safety_concern"),

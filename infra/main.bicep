@@ -202,6 +202,41 @@ resource kvSecretDbUrl 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   dependsOn: [kvSecretsOfficerRole]
 }
 
+// ─── Azure AI Search (RAG vector store) ───────────────────────────────────────
+
+resource searchService 'Microsoft.Search/searchServices@2023-11-01' = {
+  name: 'azsr${resourceToken}'
+  location: location
+  tags: tags
+  sku: {
+    name: 'basic'
+  }
+  properties: {
+    replicaCount: 1
+    partitionCount: 1
+    hostingMode: 'default'
+    publicNetworkAccess: 'enabled'
+  }
+}
+
+resource kvSecretSearchEndpoint 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'azure-search-endpoint'
+  properties: {
+    value: 'https://${searchService.name}.search.windows.net'
+  }
+  dependsOn: [kvSecretsOfficerRole]
+}
+
+resource kvSecretSearchKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'azure-search-key'
+  properties: {
+    value: searchService.listAdminKeys().primaryKey
+  }
+  dependsOn: [searchService, kvSecretsOfficerRole]
+}
+
 // ─── App Service Plan (Linux) ─────────────────────────────────────────────────
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
@@ -270,6 +305,22 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
           value: 'false'
         }
+        {
+          name: 'RAG_BACKEND'
+          value: 'azure_search'
+        }
+        {
+          name: 'AZURE_SEARCH_INDEX'
+          value: 'healthcare-rag'
+        }
+        {
+          name: 'AZURE_SEARCH_ENDPOINT'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=azure-search-endpoint)'
+        }
+        {
+          name: 'AZURE_SEARCH_KEY'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=azure-search-key)'
+        }
       ]
       cors: {
         allowedOrigins: ['*']
@@ -281,6 +332,7 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
     kvSecretsUserRole
     acrPullRole
     kvSecretDbUrl
+    kvSecretSearchKey
   ]
 }
 
@@ -321,3 +373,5 @@ output SERVICE_API_RESOURCE_GROUP string = resourceGroup().name
 output WEB_APP_URL string = 'https://${webApp.properties.defaultHostName}'
 output POSTGRES_SERVER_NAME string = postgresServer.name
 output KEY_VAULT_NAME string = keyVault.name
+output AZURE_SEARCH_SERVICE_NAME string = searchService.name
+output AZURE_SEARCH_ENDPOINT string = 'https://${searchService.name}.search.windows.net'

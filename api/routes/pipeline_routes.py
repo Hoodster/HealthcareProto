@@ -67,15 +67,14 @@ async def evaluate_mimic_patient(
     - Expert system alerts integrated
     - Comprehensive AI synthesis
     
-    **Ground Truth (A+B Combined):**
-    - Guideline violations (proxy rules): ≥2 QT drugs, eGFR<30
-    - Actual outcomes (retrospective): hospital_expire_flag, death during treatment
-    - Patient is high-risk if either condition is met
+    **Reference labels (layers A + B, separate — not a gold standard):**
+    - Layer B proxy: ≥2 QT drugs, eGFR&lt;30
+    - Layer A outcome: hospital_expire_flag, ICU, length of stay
+    - Layers are **not** merged into a single classification target
     
-    **Metrics:**
-    - Recall/Sensitivity: % of high-risk cases detected
-    - Precision: % of alarms in truly high-risk cases
-    - F1: Harmonic mean of precision and recall
+    **Per-approach signals (no F1/precision/recall):**
+    - `detected_high_risk` and `risk_level` (0=safe, 1=warning, 2=unsafe)
+    - `risk_flags` — triggered rules or detected risk categories
     
     **Example Usage:**
     ```
@@ -90,7 +89,7 @@ async def evaluate_mimic_patient(
         
     Returns:
         PipelineComparisonResult with results from selected approaches,
-        ground truth, and metrics for each approach
+        reference labels (layers A/B), and safety signals per approach
     """
     # Validate approaches
     valid_approaches = {"expert", "genai", "rag", "rag_full"}

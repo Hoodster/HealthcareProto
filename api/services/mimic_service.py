@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 
 CREATININE_ITEMID = 50912  # MIMIC-III d_labitems: Creatinine (Blood)
 
-# Minimal ICD-9
+# Minimal ICD-9 — exact codes and prefix patterns for condition mapping
 _ICD9_CONDITIONS: dict[str, str] = {
     "42731": "atrial fibrillation",
     "42732": "atrial flutter",
@@ -26,7 +26,34 @@ _ICD9_CONDITIONS: dict[str, str] = {
     "4262": "left bundle-branch block",
     "4263": "right bundle-branch block",
     "2768": "hyperpotassemia",
+    "41401": "coronary atherosclerosis",
+    "41400": "coronary atherosclerosis",
+    "4240": "mitral valve disorder",
+    "4241": "aortic valve disorder",
+    "4242": "tricuspid valve disorder",
+    "5789": "gastrointestinal bleeding",
+    "4590": "hemorrhage unspecified",
 }
+
+# Prefix → label when no exact match (e.g. icd9:41412 → ischemic heart disease)
+_ICD9_PREFIX_LABELS: tuple[tuple[str, str], ...] = (
+    ("414", "ischemic heart disease"),
+    ("424", "valve disease"),
+    ("428", "heart failure"),
+    ("426", "atrioventricular block"),
+    ("578", "bleeding"),
+    ("459", "hemorrhage"),
+)
+
+
+def _map_icd9_condition(code: str) -> str | None:
+    """Map ICD-9 code to human-readable condition label."""
+    if code in _ICD9_CONDITIONS:
+        return _ICD9_CONDITIONS[code]
+    for prefix, label in _ICD9_PREFIX_LABELS:
+        if code.startswith(prefix):
+            return label
+    return None
 
 def __get_heart_patients_query__(
     subject_id: Optional[int] = None,
@@ -169,6 +196,34 @@ def _mdrd_egfr(creatinine: float, age: int, gender: str) -> float:
     return round(egfr, 1)
 
 
+def get_admission_outcome_features(
+    subject_id: int,
+    hadm_id: int,
+    db: Session,
+) -> tuple[bool, Optional[float], Optional[str]]:
+    """Layer A features: ICU stay, length of stay (days), discharge location."""
+    admission = db.get(models.MimicAdmission, hadm_id)
+    if admission is None:
+        return False, None, None
+
+    icu_stmt = (
+        select(models.MimicICUStay.icustay_id)
+        .where(
+            models.MimicICUStay.subject_id == subject_id,
+            models.MimicICUStay.hadm_id == hadm_id,
+        )
+        .limit(1)
+    )
+    icu_admitted = db.execute(icu_stmt).scalar_one_or_none() is not None
+
+    los_days: Optional[float] = None
+    if admission.admittime and admission.dischtime:
+        delta = admission.dischtime - admission.admittime
+        los_days = round(max(0.0, delta.total_seconds() / 86400.0), 1)
+
+    return icu_admitted, los_days, admission.discharge_location
+
+
 def build_mimic_patient_context(subject_id: int, hadm_id: int, db: Session):
     """
     Build a PatientContext from MIMIC-III data for use with the expert system.
@@ -227,7 +282,7 @@ def build_mimic_patient_context(subject_id: int, hadm_id: int, db: Session):
     for code in icd_codes:
         if not code:
             continue
-        mapped = _ICD9_CONDITIONS.get(code)
+        mapped = _map_icd9_condition(code)
         if mapped and mapped not in conditions:
             conditions.append(mapped)
         elif not mapped:

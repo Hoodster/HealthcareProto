@@ -16,6 +16,9 @@ CSV_COLUMNS = [
     "qt_drug_count",
     "antiarrhythmic_drugs",
     "on_antiarrhythmic",
+    "icu_admitted",
+    "los_days",
+    "discharge_location",
     "egfr",
     "guideline_violations",
     "expert_safety_concern",
@@ -52,6 +55,9 @@ def write_csv(report: OutcomeComparisonReport, path: Path) -> None:
                 "qt_drug_count": row.qt_drug_count,
                 "antiarrhythmic_drugs": "|".join(row.antiarrhythmic_drugs),
                 "on_antiarrhythmic": row.on_antiarrhythmic,
+                "icu_admitted": row.icu_admitted,
+                "los_days": row.los_days if row.los_days is not None else "",
+                "discharge_location": row.discharge_location or "",
                 "egfr": row.egfr,
                 "guideline_violations": "|".join(row.guideline_violations),
                 "expert_safety_concern": row.expert_safety_concern,
@@ -99,7 +105,7 @@ def write_markdown(report: OutcomeComparisonReport, path: Path) -> None:
     lines.append(
         f"Filtr: `{report.outcome_filter}` | Przypadki: **{s.total_rows}** "
         f"(zgony: {s.died_count}, przeżyli: {s.survived_count}; "
-        f"na antyarytmiku: {s.on_antiarrhythmic_count})."
+        f"na antyarytmiku: {s.on_antiarrhythmic_count}; ICU: {s.icu_admitted_count})."
     )
     lines.append("")
     lines.append(
@@ -133,6 +139,35 @@ def write_markdown(report: OutcomeComparisonReport, path: Path) -> None:
         "a „przeżywający” pokazuje, czy obawa wiąże się z gorszym wynikiem (opisowo, bez wnioskowania przyczynowego)._"
     )
     lines.append("")
+
+    if s.on_antiarrhythmic_count:
+        lines.append("### Antyarytmik × outcome (stratyfikacja)")
+        lines.append("")
+        lines.append("| Podejście | % obaw (AA + zmarli) | % obaw (AA + przeżyli) |")
+        lines.append("|---|---|---|")
+        lines.append(
+            f"| expert | {_fmt(s.expert_concern_among_antiarrhythmic_died_pct)} "
+            f"| {_fmt(s.expert_concern_among_antiarrhythmic_survived_pct)} |"
+        )
+        lines.append(
+            f"| genai | {_fmt(s.genai_concern_among_antiarrhythmic_died_pct)} "
+            f"| {_fmt(s.genai_concern_among_antiarrhythmic_survived_pct)} |"
+        )
+        lines.append(
+            f"| rag | {_fmt(s.rag_concern_among_antiarrhythmic_died_pct)} "
+            f"| {_fmt(s.rag_concern_among_antiarrhythmic_survived_pct)} |"
+        )
+        lines.append("")
+
+    if s.icu_admitted_count:
+        lines.append("### ICU (stratyfikacja)")
+        lines.append("")
+        lines.append("| Podejście | % obaw (ICU) |")
+        lines.append("|---|---|")
+        lines.append(f"| expert | {_fmt(s.expert_concern_among_icu_pct)} |")
+        lines.append(f"| genai | {_fmt(s.genai_concern_among_icu_pct)} |")
+        lines.append(f"| rag | {_fmt(s.rag_concern_among_icu_pct)} |")
+        lines.append("")
 
     # Section 2: inter-method (dis)agreement
     lines.append("## 2. Zgodność i rozbieżności między podejściami")

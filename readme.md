@@ -38,7 +38,9 @@ Zalecana ścieżka — od gotowego wyniku do kodu:
   Duże N pobierane jest stronami (`--chunk`), więc nie trafia w timeout bramy.
    Szczegóły komend i flag: `[QUICKSTART.md](QUICKSTART.md)`.
 3. **Sprawdź definicje** (czym jest „sygnał bezpieczeństwa", dlaczego bez F1/PPV) →
-  `[study_example/METHODOLOGY.md](study_example/METHODOLOGY.md)`.
+  `[study_example/METHODOLOGY.md](study_example/METHODOLOGY.md)` i
+  `[study_example/SAFETY_DEFINITION.md](study_example/SAFETY_DEFINITION.md)`.
+  Architektura: `[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)`.
 4. **Przejrzyj jednego pacjenta** interaktywnie w Swaggerze →
   `GET /hp_proto/api/pipeline/antiarrhythmic-safety/{subject_id}/{hadm_id}`
    (zwraca `safety_score`, alerty eksperta, werdykty GenAI/RAG i użyte źródła RAG).
@@ -51,8 +53,9 @@ Zalecana ścieżka — od gotowego wyniku do kodu:
 ```text
 api/              FastAPI, pipeline, outcome comparison, monitoring endpoint
 expert_system/    Reguły bezpieczeństwa antyarytmików (QT, CYP, β-bloker, DrugBank, nerki)
-scripts/          run_comparison.py (wyniki), test_rag.py (weryfikacja RAG)
-study_example/    Metodologia pod pracę magisterską
+scripts/          run_comparison.py, run_pilot.py (pilotaż pracy magisterskiej)
+study_example/    Metodologia, definicja bezpieczeństwa, szkielet rozdziałów (THESIS_DRAFT)
+docs/             ARCHITECTURE.md — opis systemu dla promotora
 ```
 
 ## Dev lokalny

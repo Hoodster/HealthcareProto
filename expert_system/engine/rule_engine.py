@@ -7,18 +7,27 @@ from expert_system.rules.base_rule import BaseRule
 from expert_system.models.patient_context import PatientContext
 from expert_system.models.decision_context import DecisionContext
 
-# Import concrete rules
 from expert_system.rules.renal_rules import (
     SevereRenalImpairmentRule,
     ModerateRenalImpairmentRule,
-    MildRenalImpairmentRule
+    MildRenalImpairmentRule,
 )
 from expert_system.rules.interaction_rules import (
     QTProlongingDrugInteractionRule,
     CYPInhibitorInteractionRule,
+    CYPInducerInteractionRule,
     BetaBlockerInteractionRule,
     DatabaseDrugInteractionRule,
     RenalContraindicatedAntiarrhythmicRule,
+    AntiplateletQtRiskRule,
+    AmiodaroneMonitoringRule,
+)
+from expert_system.rules.condition_rules import (
+    ClassICStructuralHeartRule,
+    DronedaroneHeartFailureRule,
+    NonDhpCcbHeartFailureRule,
+    DigoxinRenalAgeRule,
+    AvBlockBradycardiaRiskRule,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,17 +59,22 @@ class RuleEngine:
         """Load default clinical ruleset."""
         rules: List[BaseRule] = []
         rules.extend([
-            # Renal rules (order by severity)
             SevereRenalImpairmentRule(),
             ModerateRenalImpairmentRule(),
             MildRenalImpairmentRule(),
-
-            # Drug interaction rules
             QTProlongingDrugInteractionRule(),
             CYPInhibitorInteractionRule(),
+            CYPInducerInteractionRule(),
             BetaBlockerInteractionRule(),
             DatabaseDrugInteractionRule(),
             RenalContraindicatedAntiarrhythmicRule(),
+            AntiplateletQtRiskRule(),
+            AmiodaroneMonitoringRule(),
+            ClassICStructuralHeartRule(),
+            DronedaroneHeartFailureRule(),
+            NonDhpCcbHeartFailureRule(),
+            DigoxinRenalAgeRule(),
+            AvBlockBradycardiaRiskRule(),
         ])
         return rules
 
@@ -127,10 +141,8 @@ class RuleEngine:
         """
         logger.info(f"Evaluating patient: {patient.patient_id or 'unknown'}")
 
-        # Initialize decision context
         decision = DecisionContext(dose_adjustment=None)
 
-        # Evaluate each rule
         fired_count = 0
         for rule in self.rules:
             try:
@@ -139,9 +151,7 @@ class RuleEngine:
                     logger.debug(f"Rule fired: {rule.name}")
             except Exception as e:
                 logger.error(f"Error evaluating rule {rule.name}: {str(e)}", exc_info=True)
-                # Continue with other rules even if one fails
 
-        # Calculate overall risk score
         decision.calculate_risk_score()
 
         logger.info(
