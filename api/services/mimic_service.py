@@ -5,6 +5,7 @@ from pydantic.dataclasses import dataclass
 from sqlalchemy import distinct, select, or_, and_
 from sqlalchemy.orm import Session, selectinload, joinedload
 from api import models
+from api.mimic_chart_constants import QTC_ITEMIDS
 from typing import Optional, Any
 
 log = logging.getLogger(__name__)
@@ -183,6 +184,24 @@ def get_lab_creatinine(subject_id: int, hadm_id: int, db: Session) -> Optional[f
     return db.execute(stmt).scalar_one_or_none()
 
 
+def get_chart_qtc(subject_id: int, hadm_id: int, db: Session) -> Optional[float]:
+    """Return the most recent QTc (chartevents) value in ms for an admission, or None."""
+    stmt = (
+        select(models.MimicChartEvent.valuenum)
+        .where(
+            models.MimicChartEvent.subject_id == subject_id,
+            models.MimicChartEvent.hadm_id == hadm_id,
+            models.MimicChartEvent.itemid.in_(QTC_ITEMIDS),
+            models.MimicChartEvent.valuenum.isnot(None),
+            models.MimicChartEvent.valuenum >= 300,
+            models.MimicChartEvent.valuenum <= 700,
+        )
+        .order_by(models.MimicChartEvent.charttime.desc())
+        .limit(1)
+    )
+    return db.execute(stmt).scalar_one_or_none()
+
+
 def _mdrd_egfr(creatinine: float, age: int, gender: str) -> float:
     """
     Simplified MDRD formula for eGFR estimation.
@@ -231,6 +250,7 @@ def build_mimic_patient_context(subject_id: int, hadm_id: int, db: Session):
     Sources:
     - medications: MimicPrescription.drug_name_generic
     - eGFR: derived from last creatinine (itemid=50912) via MDRD formula
+    - qtc: last QTc from chartevents when imported (itemids in QTC_ITEMIDS)
     - conditions: ICD-9 diagnoses mapped to human-readable strings
     - age: patients.dob vs admissions.admittime
     """
@@ -268,6 +288,8 @@ def build_mimic_patient_context(subject_id: int, hadm_id: int, db: Session):
     else:
         egfr = 90.0
 
+    qtc = get_chart_qtc(subject_id, hadm_id, db)
+
     # Conditions from ICD-9
     stmt_diag = (
         select(models.MimicDiagnosisICD.icd9_code)
@@ -299,5 +321,6 @@ def build_mimic_patient_context(subject_id: int, hadm_id: int, db: Session):
         age=age,
         gender=gender,
         weight=None,
+        qtc=qtc,
     )
 

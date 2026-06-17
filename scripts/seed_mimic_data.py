@@ -37,7 +37,9 @@ from api.config import get_database_connection_url
 from api.models import (
     MIMIC_SCHEMA_NAME,
     MimicAdmission,
+    MimicChartEvent,
     MimicDiagnosisICD,
+    MimicDItem,
     MimicICDDiagnosisDefinition,
     MimicICUStay,
     MimicLabEvent,
@@ -56,11 +58,13 @@ log = logging.getLogger(__name__)
 TABLES: list[tuple[str, type]] = [
     ("D_ICD_DIAGNOSES", MimicICDDiagnosisDefinition),
     ("D_LABITEMS", MimicLabItem),
+    ("D_ITEMS", MimicDItem),
     ("PATIENTS", MimicPatient),
     ("ADMISSIONS", MimicAdmission),
     ("ICUSTAYS", MimicICUStay),
     ("DIAGNOSES_ICD", MimicDiagnosisICD),
     ("LABEVENTS", MimicLabEvent),
+    ("CHARTEVENTS", MimicChartEvent),
     ("PRESCRIPTIONS", MimicPrescription),
 ]
 

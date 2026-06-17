@@ -389,3 +389,49 @@ class MimicLabItem(Base):
     loinc_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     events: Mapped[list[MimicLabEvent]] = relationship(back_populates="lab_item")
+
+
+class MimicDItem(Base):
+    """MIMIC-III Chart Item Definitions (read-only)"""
+    __tablename__ = "d_items"
+    __table_args__ = {'schema': MIMIC_SCHEMA_NAME}
+
+    row_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    itemid: Mapped[int] = mapped_column(Integer, index=True, nullable=False, unique=True)
+    label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    abbreviation: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    dbsource: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    linksto: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    unitname: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    param_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    conceptid: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class MimicChartEvent(Base):
+    """MIMIC-III Chart Events (read-only) — vitals, EKG proxy (QTc when available)"""
+    __tablename__ = "chartevents"
+    __table_args__ = (
+        Index('ix_mimic_chart_subject', 'subject_id'),
+        Index('ix_mimic_chart_hadm', 'hadm_id'),
+        Index('ix_mimic_chart_itemid', 'itemid'),
+        {'schema': MIMIC_SCHEMA_NAME},
+    )
+
+    row_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    subject_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{MIMIC_SCHEMA_NAME}.patients.subject_id"), index=True, nullable=False
+    )
+    hadm_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    icustay_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    itemid: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    charttime: Mapped[dt | None] = mapped_column(DateTime, nullable=True)
+    storetime: Mapped[dt | None] = mapped_column(DateTime, nullable=True)
+    cgid: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    value: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    valuenum: Mapped[float | None] = mapped_column(Float, nullable=True)
+    valueuom: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    warning: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    resultstatus: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    stopped: Mapped[str | None] = mapped_column(String(50), nullable=True)
