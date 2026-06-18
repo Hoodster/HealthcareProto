@@ -18,17 +18,20 @@ from expert_system.rules.interaction_rules import (
     CYPInducerInteractionRule,
     BetaBlockerInteractionRule,
     DatabaseDrugInteractionRule,
-    RenalContraindicatedAntiarrhythmicRule,
-    AntiplateletQtRiskRule,
+    SotalolRenalContraindicationRule,
+    DofetilideRenalContraindicationRule,
+    RenalCautionAntiarrhythmicRule,
     AmiodaroneMonitoringRule,
 )
 from expert_system.rules.condition_rules import (
     ClassICStructuralHeartRule,
     DronedaroneHeartFailureRule,
+    DronedaronePermanentAFRule,
     NonDhpCcbHeartFailureRule,
     DigoxinRenalAgeRule,
     AvBlockBradycardiaRiskRule,
 )
+from expert_system.rules.qtc_rules import SotalolQTContraindicationRule, DofetilideQTContraindicationRule
 
 logger = logging.getLogger(__name__)
 
@@ -62,16 +65,20 @@ class RuleEngine:
             SevereRenalImpairmentRule(),
             ModerateRenalImpairmentRule(),
             MildRenalImpairmentRule(),
+            SotalolQTContraindicationRule(),
+            DofetilideQTContraindicationRule(),
             QTProlongingDrugInteractionRule(),
             CYPInhibitorInteractionRule(),
             CYPInducerInteractionRule(),
             BetaBlockerInteractionRule(),
             DatabaseDrugInteractionRule(),
-            RenalContraindicatedAntiarrhythmicRule(),
-            AntiplateletQtRiskRule(),
+            SotalolRenalContraindicationRule(),
+            DofetilideRenalContraindicationRule(),
+            RenalCautionAntiarrhythmicRule(),
             AmiodaroneMonitoringRule(),
             ClassICStructuralHeartRule(),
             DronedaroneHeartFailureRule(),
+            DronedaronePermanentAFRule(),
             NonDhpCcbHeartFailureRule(),
             DigoxinRenalAgeRule(),
             AvBlockBradycardiaRiskRule(),

@@ -6,17 +6,15 @@ from expert_system.models.patient_context import PatientContext
 from expert_system.rules.interaction_rules import (
     ANTIARRHYTHMIC_DRUGS,
     BETA_BLOCKERS,
-    CYP_INHIBITORS,
-    CYP_INDUCERS,
     QT_AAD_DRUGS,
     QT_PROLONGING_DRUGS,
-    RENALLY_CLEARED_ANTIARRHYTHMICS,
-    ANTIPLATELET_DRUGS,
+    RENAL_CAUTION_ANTIARRHYTHMICS,
     RATE_CONTROL_DRUGS,
     BRADYCARDIA_RISK_AAD,
     CLASS_IC_DRUGS,
     NON_DHP_CCB,
 )
+from expert_system.rules.cyp_pairs import matched_cyp_inducer_pairs, matched_cyp_inhibitor_pairs
 
 EGFR_SEVERE = 30
 EGFR_MODERATE_LO = 30
@@ -24,6 +22,14 @@ EGFR_MODERATE_HI = 60
 EGFR_MILD_LO = 60
 EGFR_MILD_HI = 90
 ELDERLY_AGE = 75
+
+SOTALOL_RENAL_EGFR = 40
+DOFETILIDE_RENAL_EGFR = 20
+SOTALOL_QTC_MAX = 450
+DOFETILIDE_QTC_BASELINE_MAX = 440
+DOFETILIDE_QTC_CONDUCTION_MAX = 500
+
+AF_PATTERNS = ("atrial fibrillation", "atrial flutter", "42731", "42732")
 
 HEART_FAILURE_PATTERNS = ("heart failure", "428")
 ISCHEMIC_HD_PATTERNS = ("ischemic heart", "414", "coronary", "myocardial")
@@ -83,31 +89,53 @@ def check_mild_renal(patient: PatientContext) -> bool:
     return EGFR_MILD_LO <= patient.egfr < EGFR_MILD_HI
 
 
-def check_renal_contraindicated_aad(patient: PatientContext) -> bool:
+def has_atrial_fibrillation(patient: PatientContext) -> bool:
+    return condition_matches(patient, AF_PATTERNS)
+
+
+def check_sotalol_renal_contraindication(patient: PatientContext) -> bool:
+    return "sotalol" in patient_drugs(patient) and patient.egfr < SOTALOL_RENAL_EGFR
+
+
+def check_dofetilide_renal_contraindication(patient: PatientContext) -> bool:
+    return "dofetilide" in patient_drugs(patient) and patient.egfr < DOFETILIDE_RENAL_EGFR
+
+
+def check_renal_caution_aad(patient: PatientContext) -> bool:
     drugs = patient_drugs(patient)
-    return patient.egfr < EGFR_SEVERE and bool(drugs & RENALLY_CLEARED_ANTIARRHYTHMICS)
+    return patient.egfr < EGFR_SEVERE and bool(drugs & RENAL_CAUTION_ANTIARRHYTHMICS)
 
 
 def check_cyp_inhibitor(patient: PatientContext) -> bool:
-    return bool(patient_drugs(patient) & CYP_INHIBITORS)
+    return bool(matched_cyp_inhibitor_pairs(patient_drugs(patient)))
 
 
 def check_cyp_inducer(patient: PatientContext) -> bool:
-    return bool(patient_drugs(patient) & CYP_INDUCERS)
+    return bool(matched_cyp_inducer_pairs(patient_drugs(patient)))
+
+
+def cyp_inhibitor_pairs(patient: PatientContext) -> list[tuple[str, str]]:
+    return matched_cyp_inhibitor_pairs(patient_drugs(patient))
+
+
+def cyp_inducer_pairs(patient: PatientContext) -> list[tuple[str, str]]:
+    return matched_cyp_inducer_pairs(patient_drugs(patient))
 
 
 def check_beta_blocker_interaction(patient: PatientContext) -> bool:
     drugs = patient_drugs(patient)
     if not (drugs & BETA_BLOCKERS):
         return False
-    return bool(drugs & (ANTIARRHYTHMIC_DRUGS | BRADYCARDIA_RISK_AAD))
+    av_node_risk = ANTIARRHYTHMIC_DRUGS | BRADYCARDIA_RISK_AAD | RATE_CONTROL_DRUGS
+    return bool(drugs & av_node_risk)
 
 
 def check_av_block_brady_risk(patient: PatientContext) -> bool:
     if not has_av_block(patient):
         return False
     drugs = patient_drugs(patient)
-    return bool(drugs & (BETA_BLOCKERS | BRADYCARDIA_RISK_AAD))
+    brady_risk = BETA_BLOCKERS | BRADYCARDIA_RISK_AAD | RATE_CONTROL_DRUGS | ANTIARRHYTHMIC_DRUGS
+    return bool(drugs & brady_risk)
 
 
 def check_class_ic_structural_hf(patient: PatientContext) -> bool:
@@ -116,7 +144,13 @@ def check_class_ic_structural_hf(patient: PatientContext) -> bool:
 
 
 def check_dronedarone_hf(patient: PatientContext) -> bool:
+    """Proxy: any HF ICD/mapped label — full NYHA IV requires data not in MIMIC demo."""
     return "dronedarone" in patient_drugs(patient) and has_heart_failure(patient)
+
+
+def check_dronedarone_permanent_af(patient: PatientContext) -> bool:
+    """Proxy: dronedarone + AF diagnosis (ICD-9 42731/42732); permanent vs paroxysmal not coded in demo."""
+    return "dronedarone" in patient_drugs(patient) and has_atrial_fibrillation(patient)
 
 
 def check_ccb_hf(patient: PatientContext) -> bool:
@@ -135,11 +169,6 @@ def check_amiodarone_monitoring(patient: PatientContext) -> bool:
     return "amiodarone" in patient_drugs(patient)
 
 
-def check_antiplatelet_qt_risk(patient: PatientContext) -> bool:
-    drugs = patient_drugs(patient)
-    return bool(drugs & ANTIPLATELET_DRUGS) and bool(drugs & QT_PROLONGING_DRUGS)
-
-
 def check_drugbank_interaction(patient: PatientContext) -> bool:
     try:
         from api.drug_db_store import get_drug_interactions, is_initialized
@@ -154,3 +183,17 @@ def check_drugbank_interaction(patient: PatientContext) -> bool:
 def check_qt_rule_fires(patient: PatientContext) -> bool:
     """Expert QT rule: additive combo or multiple QT drugs."""
     return check_qt_interaction(patient) or check_qt_aad_combo(patient)
+
+
+def check_sotalol_qt_contraindication(patient: PatientContext) -> bool:
+    qtc = patient.qtc
+    return "sotalol" in patient_drugs(patient) and qtc is not None and qtc > SOTALOL_QTC_MAX
+
+
+def check_dofetilide_qt_contraindication(patient: PatientContext) -> bool:
+    qtc = patient.qtc
+    if "dofetilide" not in patient_drugs(patient) or qtc is None:
+        return False
+    if qtc > DOFETILIDE_QTC_BASELINE_MAX:
+        return True
+    return qtc > DOFETILIDE_QTC_CONDUCTION_MAX and has_av_block(patient)

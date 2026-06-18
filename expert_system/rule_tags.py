@@ -13,14 +13,18 @@ RULE_TO_TAG: dict[str, str] = {
     "CYPInducerInteractionRule": "CYP_INDUCER_INTERACTION",
     "BetaBlockerInteractionRule": "BETA_BLOCKER_INTERACTION",
     "DatabaseDrugInteractionRule": "DRUGBANK_INTERACTION",
-    "RenalContraindicatedAntiarrhythmicRule": "RENAL_CONTRAINDICATED_AAD",
-    "AntiplateletQtRiskRule": "ANTIPLATELET_QT_RISK",
+    "SotalolRenalContraindicationRule": "SOTALOL_RENAL_CONTRAINDICATION",
+    "DofetilideRenalContraindicationRule": "DOFETILIDE_RENAL_CONTRAINDICATION",
+    "RenalCautionAntiarrhythmicRule": "RENAL_CAUTION_AAD",
     "AmiodaroneMonitoringRule": "AMIODARONE_MONITORING",
     "ClassICStructuralHeartRule": "CLASS_IC_STRUCTURAL_HF",
     "DronedaroneHeartFailureRule": "DRONEDARONE_HF",
+    "DronedaronePermanentAFRule": "DRONEDARONE_PERMANENT_AF",
     "NonDhpCcbHeartFailureRule": "CCB_HF",
     "DigoxinRenalAgeRule": "DIGOXIN_RENAL_AGE",
     "AvBlockBradycardiaRiskRule": "AV_BLOCK_BRADY_RISK",
+    "SotalolQTContraindicationRule": "SOTALOL_QT_CONTRAINDICATION",
+    "DofetilideQTContraindicationRule": "DOFETILIDE_QT_CONTRAINDICATION",
 }
 
 

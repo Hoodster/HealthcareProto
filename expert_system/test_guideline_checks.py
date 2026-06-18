@@ -48,6 +48,11 @@ def test_dronedarone_hf():
     assert check_dronedarone_hf(p)
 
 
-def test_beta_blocker_no_interaction_without_aad():
+def test_beta_blocker_with_rate_control_triggers_interaction():
     p = _patient(medications=["metoprolol", "diltiazem"])
+    assert check_beta_blocker_interaction(p)
+
+
+def test_beta_blocker_no_interaction_without_brady_risk():
+    p = _patient(medications=["metoprolol", "lisinopril"])
     assert not check_beta_blocker_interaction(p)

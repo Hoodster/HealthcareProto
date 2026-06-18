@@ -27,14 +27,17 @@ class SevereRenalImpairmentRule(BaseRule):
 
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         decision.add_alert(
-            message=f"Severe renal impairment: eGFR {patient.egfr} mL/min/1.73m² (Stage 4-5 CKD)",
+            message=(
+                f"Severe renal impairment: eGFR {patient.egfr} mL/min/1.73m² — "
+                "renal dosing risk modifier (not universal contraindication)"
+            ),
             severity=AlertSeverity.CRITICAL,
             rule_name=self.name,
             category=self.category
         )
         decision.add_alert(
-            message="Many antiarrhythmic drugs require dose reduction or are contraindicated",
-            severity=AlertSeverity.CRITICAL,
+            message="Review renally cleared antiarrhythmics for dose adjustment",
+            severity=AlertSeverity.HIGH,
             rule_name=self.name,
             category=self.category
         )

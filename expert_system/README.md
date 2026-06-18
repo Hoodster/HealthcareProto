@@ -41,20 +41,25 @@ expert_system/
 
 ### 3. **Rule Types**
 
-#### **QTc Rules**
-- `HighQTcRule`: QTc > 500ms → Contraindicated
-- `ModerateQTcRule`: 470-500ms → Dose reduction + monitoring
-- `MildQTcRule`: 450-470ms → Monitoring recommended
+#### **QTc Rules** (drug-specific; require measured `qtc` in `PatientContext`)
+- `SotalolQTContraindicationRule`: sotalol + QTc > 450 ms → Contraindicated
+- `DofetilideQTContraindicationRule`: dofetilide + QTc > 440 ms (or > 500 ms with conduction disease) → Contraindicated
 
 #### **Renal Rules**
 - `SevereRenalImpairmentRule`: eGFR < 30 → Critical dose reduction
 - `ModerateRenalImpairmentRule`: eGFR 30-60 → Dose adjustment
 - `MildRenalImpairmentRule`: eGFR 60-90 → Standard dosing with monitoring
 
+#### **Renal + Antiarrhythmic Rules**
+- `SotalolRenalContraindicationRule`: sotalol + eGFR < 40 → Contraindicated
+- `DofetilideRenalContraindicationRule`: dofetilide + eGFR < 20 → Contraindicated
+- `RenalCautionAntiarrhythmicRule`: procainamide/disopyramide + eGFR < 30 → dose reduction
+
 #### **Drug Interaction Rules**
-- `QTProlongingDrugInteractionRule`: Detects QT-prolonging medications
-- `CYPInhibitorInteractionRule`: Identifies drugs affecting metabolism
-- `BetaBlockerInteractionRule`: Warns of bradycardia risk
+- `QTProlongingDrugInteractionRule`: Detects QT-prolonging medication combinations
+- `CYPInhibitorInteractionRule` / `CYPInducerInteractionRule`: known CYP drug pairs
+- `BetaBlockerInteractionRule`: β-blocker + antiarrhythmic or non-DHP CCB
+- `DronedaronePermanentAFRule`: dronedarone + atrial fibrillation (ICD proxy)
 
 ### 4. **Rule Engine**
 - Evaluates patient against all rules

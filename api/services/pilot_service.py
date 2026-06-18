@@ -28,12 +28,15 @@ OutcomeFilter = Literal["all", "died", "survived"]
 # Tags that map to expert risk level 2 when expert_safety_concern is true (API export).
 _EXPERT_CRITICAL_TAGS = frozenset(
     {
-        "RENAL_CONTRAINDICATED_AAD",
+        "SOTALOL_RENAL_CONTRAINDICATION",
+        "DOFETILIDE_RENAL_CONTRAINDICATION",
+        "SOTALOL_QT_CONTRAINDICATION",
+        "DOFETILIDE_QT_CONTRAINDICATION",
         "CLASS_IC_STRUCTURAL_HF",
         "DRONEDARONE_HF",
+        "DRONEDARONE_PERMANENT_AF",
         "QT_INTERACTION",
         "QT_AAD_COMBO",
-        "SEVERE_RENAL_IMPAIRMENT",
     }
 )
 

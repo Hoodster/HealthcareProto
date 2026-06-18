@@ -51,7 +51,7 @@ class ClassICStructuralHeartRule(BaseRule):
 
 
 class DronedaroneHeartFailureRule(BaseRule):
-    """Dronedarone is contraindicated in heart failure (decompensated/advanced proxy)."""
+    """Dronedarone contraindicated in advanced/decompensated HF (NYHA IV proxy via ICD HF)."""
 
     def __init__(self):
         super().__init__()
@@ -62,24 +62,58 @@ class DronedaroneHeartFailureRule(BaseRule):
 
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
         decision.add_alert(
-            message="Dronedarone with heart failure — contraindicated per AF guidelines",
+            message=(
+                "Dronedarone with heart failure (HFrEF/decompensation proxy) — "
+                "contraindicated per AF guidelines"
+            ),
             severity=AlertSeverity.CRITICAL,
             rule_name=self.name,
             category=self.category,
         )
         decision.set_contraindicated(
-            "Dronedarone is contraindicated in heart failure (increased mortality)"
+            "Dronedarone is contraindicated in significant heart failure / NYHA IV (ICD proxy)"
         )
 
     def explanation(self, patient: PatientContext) -> str:
         return (
-            "Patient takes dronedarone with a heart failure diagnosis. Dronedarone is "
-            "contraindicated in heart failure including NYHA class IV and decompensated HF."
+            "Patient takes dronedarone with heart failure diagnosis. "
+            "Dronedarone is contraindicated in NYHA class IV and recent decompensated HF; "
+            "MIMIC uses ICD-9 HF as proxy when NYHA is unavailable."
+        )
+
+
+class DronedaronePermanentAFRule(BaseRule):
+    """Dronedarone contraindicated in permanent AF (ICD AF diagnosis as demo proxy)."""
+
+    def __init__(self):
+        super().__init__()
+        self.category = "condition"
+
+    def condition(self, patient: PatientContext) -> bool:
+        from expert_system.guideline_checks import check_dronedarone_permanent_af
+
+        return check_dronedarone_permanent_af(patient)
+
+    def action(self, patient: PatientContext, decision: DecisionContext) -> None:
+        decision.add_alert(
+            message="Dronedarone with atrial fibrillation — contraindicated if permanent AF",
+            severity=AlertSeverity.CRITICAL,
+            rule_name=self.name,
+            category=self.category,
+        )
+        decision.set_contraindicated(
+            "Dronedarone is contraindicated in permanent atrial fibrillation"
+        )
+
+    def explanation(self, patient: PatientContext) -> str:
+        return (
+            "Dronedarone is contraindicated in permanent AF. "
+            "Demo cohort uses ICD-9 AF/flutter as proxy when rhythm subtype is not coded."
         )
 
 
 class NonDhpCcbHeartFailureRule(BaseRule):
-    """Non-dihydropyridine CCBs (diltiazem, verapamil) avoided in HFrEF."""
+    """Non-dihydropyridine CCBs avoided in HFrEF (HF ICD proxy)."""
 
     def __init__(self):
         super().__init__()
@@ -92,7 +126,7 @@ class NonDhpCcbHeartFailureRule(BaseRule):
         ccbs = sorted(patient_drugs(patient) & NON_DHP_CCB)
         decision.add_alert(
             message=(
-                f"Non-DHP calcium channel blocker ({', '.join(ccbs)}) with heart failure — "
+                f"Non-DHP CCB ({', '.join(ccbs)}) with heart failure (HFrEF proxy) — "
                 "negative inotropic effect"
             ),
             severity=AlertSeverity.HIGH,
@@ -160,6 +194,7 @@ class AvBlockBradycardiaRiskRule(BaseRule):
 
     def explanation(self, patient: PatientContext) -> str:
         return (
-            "Patient has AV block and takes bradycardia-risk drugs (beta-blocker and/or "
-            "amiodarone/sotalol). Risk of symptomatic bradycardia or high-grade block."
+            "Patient has AV block and takes bradycardia-risk drugs (beta-blocker, digoxin, "
+            "non-DHP CCB, and/or antiarrhythmic). Risk of symptomatic bradycardia or "
+            "high-grade block."
         )

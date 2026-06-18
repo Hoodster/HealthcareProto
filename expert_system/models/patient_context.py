@@ -25,6 +25,12 @@ class PatientContext(BaseModel):
     age: Optional[int] = None
     gender: Optional[str] = None
     weight: Optional[float] = None
+    qtc: Optional[float] = Field(
+        default=None,
+        ge=300,
+        le=700,
+        description="Corrected QT interval in ms from chartevents when available",
+    )
 
     class Config:
         json_schema_extra = {

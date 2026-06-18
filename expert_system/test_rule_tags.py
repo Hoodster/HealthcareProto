@@ -5,7 +5,17 @@ from expert_system.models.patient_context import PatientContext
 from expert_system.rule_tags import expert_rule_tags
 
 
-def test_expert_rule_tags_from_fired_rules():
+def test_expert_rule_tags_renal_sotalol():
+    patient = PatientContext(age=70, medications=["sotalol"], egfr=35.0, conditions=[])
+    decision = DecisionContext(
+        triggered_rules=["SotalolRenalContraindicationRule"],
+        alerts=[],
+    )
+    tags = expert_rule_tags(decision, patient)
+    assert "SOTALOL_RENAL_CONTRAINDICATION" in tags
+
+
+def test_expert_rule_tags_dronedarone_hf():
     patient = PatientContext(
         age=75,
         medications=["dronedarone"],

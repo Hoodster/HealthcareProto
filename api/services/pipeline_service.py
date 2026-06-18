@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from api.services.mimic_service import build_mimic_patient_context
-from api.services.ai_service import normalize_llm_provider
+from api.services.ai_service import AIModelService, normalize_llm_provider
 from api import models
 from expert_system.engine.rule_engine import RuleEngine
 from expert_system.models.patient_context import PatientContext
@@ -410,7 +410,9 @@ class PipelineService:
             parts.append(f"- Gender: {patient_context.gender}")
         
         parts.append(f"- eGFR: {patient_context.egfr} mL/min/1.73m²")
-        
+        if patient_context.qtc is not None:
+            parts.append(f"- QTc: {patient_context.qtc} ms (chartevents)")
+
         if patient_context.conditions:
             parts.append(f"- Conditions: {', '.join(patient_context.conditions)}")
         

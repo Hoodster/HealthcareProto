@@ -45,16 +45,10 @@ BETA_BLOCKERS = {
 }
 
 
-# CYP3A4/P-gp inducers — reduce antiarrhythmic / DOAC levels
+# CYP3A4/P-gp inducers — see cyp_pairs.py for drug-specific pairs
 CYP_INDUCERS = {
     "rifampin", "rifampicin", "carbamazepine", "phenobarbital", "phenytoin",
     "st john's wort", "st johns wort",
-}
-
-
-# Antiplatelet agents — bleeding / QT combo proxy
-ANTIPLATELET_DRUGS = {
-    "aspirin", "clopidogrel", "prasugrel", "ticagrelor", "dipyridamole",
 }
 
 
@@ -88,10 +82,9 @@ ANTIARRHYTHMIC_DRUGS = {
 }
 
 
-# Antiarrhythmics that are renally cleared — accumulate in renal impairment and
-# are contraindicated / require strict dose adjustment at low eGFR.
-RENALLY_CLEARED_ANTIARRHYTHMICS = {
-    "sotalol", "dofetilide", "procainamide", "disopyramide",
+# Antiarrhythmics that are renally cleared — require dose reduction at low eGFR (not sotalol/dofetilide CI).
+RENAL_CAUTION_ANTIARRHYTHMICS = {
+    "procainamide", "disopyramide",
 }
 
 # QT-prolonging antiarrhythmics subset
@@ -165,38 +158,37 @@ class CYPInhibitorInteractionRule(BaseRule):
         return check_cyp_inhibitor(patient)
 
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
-        patient_drugs = {drug.lower().strip() for drug in patient.medications}
-        inhibitors = list(patient_drugs & CYP_INHIBITORS)
+        from expert_system.guideline_checks import cyp_inhibitor_pairs
 
-        decision.add_alert(
-            message=f"Drug interaction: CYP enzyme inhibitors detected: {', '.join(inhibitors)}",
-            severity=AlertSeverity.HIGH,
-            rule_name=self.name,
-            category=self.category
-        )
-        decision.add_alert(
-            message="Risk of increased antiarrhythmic drug levels - consider dose reduction",
-            severity=AlertSeverity.HIGH,
-            rule_name=self.name,
-            category=self.category
-        )
-
-        if not decision.dose_adjustment:  # Don't override existing adjustment
-            decision.set_dose_adjustment(
-                adjusted_dose="Reduce to 50% of standard dose initially",
-                reason=f"CYP inhibitor interaction: {', '.join(inhibitors)}",
-                original_dose="Standard dose"
+        for inhibitor, substrate in cyp_inhibitor_pairs(patient):
+            decision.add_alert(
+                message=(
+                    f"CYP inhibitor interaction: {inhibitor} may increase "
+                    f"{substrate} levels — consider dose reduction"
+                ),
+                severity=AlertSeverity.HIGH,
+                rule_name=self.name,
+                category=self.category,
             )
 
-    def explanation(self, patient: PatientContext) -> str:
-        patient_drugs = {drug.lower().strip() for drug in patient.medications}
-        inhibitors = list(patient_drugs & CYP_INHIBITORS)
+        if not decision.dose_adjustment:
+            pairs = cyp_inhibitor_pairs(patient)
+            if pairs:
+                inh, sub = pairs[0]
+                decision.set_dose_adjustment(
+                    adjusted_dose="Reduce affected antiarrhythmic dose; monitor ECG and levels",
+                    reason=f"CYP inhibitor pair: {inh} + {sub}",
+                    original_dose="Standard dose",
+                )
 
+    def explanation(self, patient: PatientContext) -> str:
+        from expert_system.guideline_checks import cyp_inhibitor_pairs
+
+        pairs = cyp_inhibitor_pairs(patient)
+        lines = [f"- {a} + {b}" for a, b in pairs]
         return (
-            f"Patient is taking CYP enzyme inhibitors: {', '.join(inhibitors)}. "
-            f"These drugs can reduce metabolism of many antiarrhythmics, "
-            f"leading to increased drug levels and risk of toxicity. "
-            f"Dose reduction and therapeutic drug monitoring (if available) are recommended."
+            "Strong CYP3A/P-gp inhibitor with dependent antiarrhythmic:\n"
+            + "\n".join(lines)
         )
 
 
@@ -301,78 +293,112 @@ class DatabaseDrugInteractionRule(BaseRule):
         )
 
 
-class RenalContraindicatedAntiarrhythmicRule(BaseRule):
-    """
-    Renal-clearance safety rule for antiarrhythmic drugs.
+class SotalolRenalContraindicationRule(BaseRule):
+    """Sotalol contraindicated when CrCl/eGFR < 40 mL/min/1.73m²."""
 
-    IF patient takes a renally-cleared antiarrhythmic (sotalol, dofetilide,
-    procainamide, disopyramide) AND eGFR < 30 THEN:
-    - sotalol / dofetilide → contraindicated (proarrhythmia / torsade risk)
-    - procainamide / disopyramide → high alert, strict dose reduction
-    """
+    def __init__(self):
+        super().__init__()
+        self.category = "interaction"
+        self.threshold = 40
 
-    SEVERE_EGFR = 30
+    def condition(self, patient: PatientContext) -> bool:
+        from expert_system.guideline_checks import check_sotalol_renal_contraindication
+
+        return check_sotalol_renal_contraindication(patient)
+
+    def action(self, patient: PatientContext, decision: DecisionContext) -> None:
+        decision.add_alert(
+            message=(
+                f"Sotalol contraindicated at eGFR {patient.egfr} "
+                f"(<{self.threshold}) — torsade / proarrhythmia risk"
+            ),
+            severity=AlertSeverity.CRITICAL,
+            rule_name=self.name,
+            category=self.category,
+        )
+        decision.set_contraindicated(
+            f"Sotalol is contraindicated when eGFR < {self.threshold} mL/min/1.73m²"
+        )
+
+    def explanation(self, patient: PatientContext) -> str:
+        return (
+            f"Sotalol is renally cleared; at eGFR {patient.egfr} accumulation increases "
+            f"QT prolongation and torsade risk. Threshold: < {self.threshold}."
+        )
+
+
+class DofetilideRenalContraindicationRule(BaseRule):
+    """Dofetilide contraindicated when CrCl/eGFR < 20 mL/min/1.73m²."""
+
+    def __init__(self):
+        super().__init__()
+        self.category = "interaction"
+        self.threshold = 20
+
+    def condition(self, patient: PatientContext) -> bool:
+        from expert_system.guideline_checks import check_dofetilide_renal_contraindication
+
+        return check_dofetilide_renal_contraindication(patient)
+
+    def action(self, patient: PatientContext, decision: DecisionContext) -> None:
+        decision.add_alert(
+            message=(
+                f"Dofetilide contraindicated at eGFR {patient.egfr} "
+                f"(<{self.threshold}) — QT/torsade risk"
+            ),
+            severity=AlertSeverity.CRITICAL,
+            rule_name=self.name,
+            category=self.category,
+        )
+        decision.set_contraindicated(
+            f"Dofetilide is contraindicated when eGFR < {self.threshold} mL/min/1.73m²"
+        )
+
+    def explanation(self, patient: PatientContext) -> str:
+        return (
+            f"Dofetilide requires intact renal clearance; eGFR {patient.egfr} is below "
+            f"{self.threshold}. Contraindicated per labeling."
+        )
+
+
+class RenalCautionAntiarrhythmicRule(BaseRule):
+    """Procainamide/disopyramide — strict dose reduction at eGFR < 30 (not universal CI)."""
 
     def __init__(self):
         super().__init__()
         self.category = "interaction"
 
-    def _affected(self, patient: PatientContext) -> set[str]:
-        patient_drugs = {drug.lower().strip() for drug in patient.medications}
-        return patient_drugs & RENALLY_CLEARED_ANTIARRHYTHMICS
-
     def condition(self, patient: PatientContext) -> bool:
-        from expert_system.guideline_checks import check_renal_contraindicated_aad
+        from expert_system.guideline_checks import check_renal_caution_aad
 
-        return check_renal_contraindicated_aad(patient)
+        return check_renal_caution_aad(patient)
 
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
-        affected = self._affected(patient)
-        contraindicated = affected & {"sotalol", "dofetilide"}
-        caution = affected - contraindicated
-
-        if contraindicated:
-            drugs = ", ".join(sorted(contraindicated))
-            decision.add_alert(
-                message=(
-                    f"Renally-cleared antiarrhythmic contraindicated at eGFR "
-                    f"{patient.egfr}: {drugs}"
-                ),
-                severity=AlertSeverity.CRITICAL,
-                rule_name=self.name,
-                category=self.category,
+        patient_drugs = {drug.lower().strip() for drug in patient.medications}
+        affected = sorted(patient_drugs & RENAL_CAUTION_ANTIARRHYTHMICS)
+        drugs = ", ".join(affected)
+        decision.add_alert(
+            message=(
+                f"Renally cleared antiarrhythmic ({drugs}) at eGFR {patient.egfr} — "
+                "strict dose reduction and ECG monitoring"
+            ),
+            severity=AlertSeverity.HIGH,
+            rule_name=self.name,
+            category=self.category,
+        )
+        if not decision.dose_adjustment:
+            decision.set_dose_adjustment(
+                adjusted_dose="Reduce dose substantially; monitor ECG and drug levels",
+                reason=f"Renal impairment + {drugs}",
+                original_dose="Standard dose",
             )
-            decision.set_contraindicated(
-                f"{drugs} accumulate in severe renal impairment (eGFR {patient.egfr} < 30) "
-                f"with high risk of QT prolongation and torsade de pointes"
-            )
-
-        if caution:
-            drugs = ", ".join(sorted(caution))
-            decision.add_alert(
-                message=(
-                    f"Renally-cleared antiarrhythmic requires strict dose reduction at eGFR "
-                    f"{patient.egfr}: {drugs}"
-                ),
-                severity=AlertSeverity.HIGH,
-                rule_name=self.name,
-                category=self.category,
-            )
-            if not decision.dose_adjustment:
-                decision.set_dose_adjustment(
-                    adjusted_dose="Reduce dose and monitor ECG, or switch to non-renally-cleared agent",
-                    reason=f"Renally-cleared antiarrhythmic ({drugs}) at eGFR {patient.egfr}",
-                    original_dose="Standard dose",
-                )
 
     def explanation(self, patient: PatientContext) -> str:
-        affected = self._affected(patient)
+        patient_drugs = {drug.lower().strip() for drug in patient.medications}
+        affected = sorted(patient_drugs & RENAL_CAUTION_ANTIARRHYTHMICS)
         return (
-            f"Patient takes renally-cleared antiarrhythmic(s): {', '.join(sorted(affected))} "
-            f"with eGFR {patient.egfr} mL/min/1.73m² (< {self.SEVERE_EGFR}). These agents "
-            f"accumulate in severe renal impairment. Sotalol and dofetilide are contraindicated "
-            f"due to dose-dependent QT prolongation and torsade de pointes; procainamide and "
-            f"disopyramide require strict dose reduction and ECG monitoring."
+            f"{', '.join(affected)} at eGFR {patient.egfr}: dose adjustment required; "
+            "not an automatic contraindication unless toxicity occurs."
         )
 
 
@@ -389,54 +415,25 @@ class CYPInducerInteractionRule(BaseRule):
         return check_cyp_inducer(patient)
 
     def action(self, patient: PatientContext, decision: DecisionContext) -> None:
-        patient_drugs = {drug.lower().strip() for drug in patient.medications}
-        inducers = list(patient_drugs & CYP_INDUCERS)
-        decision.add_alert(
-            message=f"CYP inducer interaction: {', '.join(inducers)}",
-            severity=AlertSeverity.MODERATE,
-            rule_name=self.name,
-            category=self.category,
-        )
+        from expert_system.guideline_checks import cyp_inducer_pairs
+
+        for inducer, substrate in cyp_inducer_pairs(patient):
+            decision.add_alert(
+                message=(
+                    f"CYP inducer interaction: {inducer} may reduce "
+                    f"{substrate} efficacy — monitor rhythm control"
+                ),
+                severity=AlertSeverity.MODERATE,
+                rule_name=self.name,
+                category=self.category,
+            )
 
     def explanation(self, patient: PatientContext) -> str:
-        patient_drugs = {drug.lower().strip() for drug in patient.medications}
-        inducers = list(patient_drugs & CYP_INDUCERS)
-        return (
-            f"Patient takes CYP inducers ({', '.join(inducers)}) which may reduce "
-            "levels of CYP-metabolized antiarrhythmics — monitor efficacy."
-        )
+        from expert_system.guideline_checks import cyp_inducer_pairs
 
-
-class AntiplateletQtRiskRule(BaseRule):
-    """Antiplatelet + QT-prolonging drug — bleeding and arrhythmia risk proxy."""
-
-    def __init__(self):
-        super().__init__()
-        self.category = "interaction"
-
-    def condition(self, patient: PatientContext) -> bool:
-        from expert_system.guideline_checks import check_antiplatelet_qt_risk
-
-        return check_antiplatelet_qt_risk(patient)
-
-    def action(self, patient: PatientContext, decision: DecisionContext) -> None:
-        patient_drugs = {drug.lower().strip() for drug in patient.medications}
-        antiplatelets = list(patient_drugs & ANTIPLATELET_DRUGS)
-        decision.add_alert(
-            message=(
-                f"Antiplatelet ({', '.join(antiplatelets)}) with QT-prolonging therapy — "
-                "elevated bleeding and arrhythmia monitoring needed"
-            ),
-            severity=AlertSeverity.MODERATE,
-            rule_name=self.name,
-            category=self.category,
-        )
-
-    def explanation(self, patient: PatientContext) -> str:
-        return (
-            "Combined antiplatelet and QT-prolonging therapy increases bleeding risk "
-            "and requires ECG monitoring per AF/chronic coronary disease guidelines."
-        )
+        pairs = cyp_inducer_pairs(patient)
+        lines = [f"- {a} + {b}" for a, b in pairs]
+        return "CYP3A inducer may reduce antiarrhythmic exposure:\n" + "\n".join(lines)
 
 
 class AmiodaroneMonitoringRule(BaseRule):
